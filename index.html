@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NUCLEAR ARMS GLOBAL TRACKER</title>
 <meta name="description" content="Fictional, simulation-only intelligence dashboard concept. Warhead figures are public estimates; all alerts and events are invented for the demo.">
+<meta name="theme-color" content="#080c0f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'><circle cx='18' cy='18' r='16' fill='none' stroke='%2300ff88' stroke-width='2'/><circle cx='18' cy='18' r='8' fill='none' stroke='%2300ff88' stroke-width='1.5' opacity='0.6'/><circle cx='18' cy='18' r='3' fill='%2300ff88'/></svg>">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NAGT // Nuclear Arms Global Tracker">
+<meta property="og:description" content="A fictional, simulation-only nuclear-arms intelligence dashboard concept.">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Inter:wght@300..700&display=swap" rel="stylesheet">
@@ -327,7 +333,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <!-- MAIN CONTENT -->
 <main class="main">
   <div class="map-wrapper">
-    <div id="map"></div>
+    <div id="map" role="region" aria-label="World map of nuclear-armed states and strategic platforms"></div>
     <div class="map-overlay-top">
       <div class="map-kpi">
         <div class="kpi-label">Total Warheads</div>
@@ -371,7 +377,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <i data-lucide="activity" style="width:14px;height:14px;"></i>
         Intelligence Feed (simulated)
       </div>
-      <div id="intel-feed"></div>
+      <div id="intel-feed" aria-live="polite" aria-label="Simulated intelligence feed"></div>
     </div>
 
     <div class="bottom-panel">
