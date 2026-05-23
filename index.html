@@ -165,7 +165,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* WARHEAD COUNT BARS */
 .wh-row{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);}
 .wh-flag{font-size:0.9rem;width:18px;}
-.wh-name{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);width:48px;flex-shrink:0;}
+.wh-name{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);width:54px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .wh-bar-wrap{flex:1;height:6px;background:var(--surface-3);border-radius:var(--radius-full);overflow:hidden;}
 .wh-bar{height:100%;border-radius:var(--radius-full);transition:width 1s ease;}
 .wh-count{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);width:36px;text-align:right;flex-shrink:0;}
@@ -426,15 +426,15 @@ const STATUS_COLORS = {
 };
 
 const NATIONS = [
-  {key:"usa",        name:"United States", flag:"🇺🇸", warheads:5550, label:"5,550 warheads",      status:"elevated", lat:39.5, lng:-98.35, mapColor:"#ffaa00", size:18},
-  {key:"russia",     name:"Russia",        flag:"🇷🇺", warheads:6257, label:"6,257 warheads",      status:"elevated", lat:60,   lng:90,     mapColor:"#ff8800", size:22},
-  {key:"northkorea", name:"North Korea",   flag:"🇰🇵", warheads:45,   label:"~40–50 warheads",     status:"critical", lat:40,   lng:127,    mapColor:"#ff3333", size:14},
-  {key:"china",      name:"China",         flag:"🇨🇳", warheads:350,  label:"~350 warheads",       status:"nominal",  lat:35,   lng:103,    mapColor:"#00ff88", size:12},
-  {key:"uk",         name:"United Kingdom",flag:"🇬🇧", warheads:225,  label:"225 warheads",        status:"nominal",  lat:54,   lng:-3,     mapColor:"#00ff88", size:10},
-  {key:"france",     name:"France",        flag:"🇫🇷", warheads:290,  label:"290 warheads",        status:"nominal",  lat:46,   lng:2,      mapColor:"#00ff88", size:10},
-  {key:"india",      name:"India",         flag:"🇮🇳", warheads:160,  label:"~160 warheads",       status:"nominal",  lat:20,   lng:78,     mapColor:"#00ff88", size:9},
-  {key:"pakistan",   name:"Pakistan",      flag:"🇵🇰", warheads:165,  label:"~165 warheads",       status:"nominal",  lat:30,   lng:69,     mapColor:"#00ff88", size:9},
-  {key:"israel",     name:"Israel",        flag:"🇮🇱", warheads:90,   label:"~90 warheads (est.)", status:"nominal",  lat:31.5, lng:34.8,   mapColor:"#00ff88", size:8}
+  {key:"usa",        name:"United States", short:"USA",      flag:"🇺🇸", warheads:5550, label:"5,550 warheads",      status:"elevated", lat:39.5, lng:-98.35, mapColor:"#ffaa00", size:18},
+  {key:"russia",     name:"Russia",        short:"Russia",   flag:"🇷🇺", warheads:6257, label:"6,257 warheads",      status:"elevated", lat:60,   lng:90,     mapColor:"#ff8800", size:22},
+  {key:"northkorea", name:"North Korea",   short:"DPRK",     flag:"🇰🇵", warheads:45,   label:"~40–50 warheads",     status:"critical", lat:40,   lng:127,    mapColor:"#ff3333", size:14},
+  {key:"china",      name:"China",         short:"China",    flag:"🇨🇳", warheads:350,  label:"~350 warheads",       status:"nominal",  lat:35,   lng:103,    mapColor:"#00ff88", size:12},
+  {key:"uk",         name:"United Kingdom",short:"UK",       flag:"🇬🇧", warheads:225,  label:"225 warheads",        status:"nominal",  lat:54,   lng:-3,     mapColor:"#00ff88", size:10},
+  {key:"france",     name:"France",        short:"France",   flag:"🇫🇷", warheads:290,  label:"290 warheads",        status:"nominal",  lat:46,   lng:2,      mapColor:"#00ff88", size:10},
+  {key:"india",      name:"India",         short:"India",    flag:"🇮🇳", warheads:160,  label:"~160 warheads",       status:"nominal",  lat:20,   lng:78,     mapColor:"#00ff88", size:9},
+  {key:"pakistan",   name:"Pakistan",      short:"Pakistan", flag:"🇵🇰", warheads:165,  label:"~165 warheads",       status:"nominal",  lat:30,   lng:69,     mapColor:"#00ff88", size:9},
+  {key:"israel",     name:"Israel",        short:"Israel",   flag:"🇮🇱", warheads:90,   label:"~90 warheads (est.)", status:"nominal",  lat:31.5, lng:34.8,   mapColor:"#00ff88", size:8}
 ];
 
 const MISSILE_SYSTEMS = [
@@ -663,7 +663,7 @@ function renderArsenalChart(){
     const row = el("div", "wh-row");
     row.innerHTML = `
       <span class="wh-flag">${n.flag}</span>
-      <span class="wh-name">${esc(n.name)}</span>
+      <span class="wh-name">${esc(n.short)}</span>
       <div class="wh-bar-wrap"><div class="wh-bar" style="width:${pct.toFixed(1)}%;background:${barColor(n)};${blink}"></div></div>
       <span class="wh-count">${esc(n.label.includes("~") ? "~" + n.warheads : n.warheads.toLocaleString())}</span>`;
     chart.appendChild(row);
@@ -862,6 +862,12 @@ function initMap(){
   });
 
   addPlatformLayers();
+
+  // Leaflet can mis-measure its container inside a CSS grid/flex layout,
+  // leaving the map gray until the size is recomputed.
+  const fixSize = () => map.invalidateSize();
+  map.whenReady(() => setTimeout(fixSize, 0));
+  window.addEventListener("resize", fixSize);
 }
 
 /* ──────────────── LAUNCH SIMULATION ──────────────── */
