@@ -194,11 +194,28 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .lt-event{font-size:var(--text-xs);color:var(--text);font-weight:500;}
 .lt-detail{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);margin-top:2px;}
 
+/* LAUNCH CONTROL */
+.launch-control{position:absolute;bottom:var(--space-3);left:var(--space-3);z-index:10;display:flex;flex-direction:column;gap:var(--space-2);max-width:240px;}
+.launch-btn{font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,var(--danger-dim),var(--danger));border:1px solid var(--danger);border-radius:var(--radius-md);padding:var(--space-2) var(--space-4);box-shadow:0 0 12px var(--danger-glow);transition:box-shadow var(--transition);}
+.launch-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(255,51,51,0.5);}
+.launch-btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.launch-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.launch-status{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);background:rgba(13,19,24,0.92);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-1) var(--space-2);backdrop-filter:blur(8px);}
+.launch-status.intercepted{color:var(--accent);border-color:var(--accent-dim);}
+.launch-status.impact{color:var(--danger);border-color:var(--border-danger);}
+
+/* LEGEND GLYPHS */
+.legend-glyph{width:10px;text-align:center;font-size:0.8rem;line-height:1;}
+
 /* LEAFLET MARKER + POPUP OVERRIDES */
 .nuke-marker{position:relative;display:flex;align-items:center;justify-content:center;border-radius:50%;}
 .nuke-marker__core{border-radius:50%;}
 .nuke-marker--pulse{animation:ripple 1.5s ease-out infinite;}
 .nuke-marker--pulse .nuke-marker__core{animation:blink 1s infinite;}
+.platform-marker{display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);font-size:12px;font-weight:700;line-height:1;}
+.warhead-dot{width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff,0 0 18px var(--danger);}
+.burst{border-radius:50%;animation:burst 0.9s ease-out forwards;}
+@keyframes burst{0%{transform:scale(0.2);opacity:0.95}100%{transform:scale(2.8);opacity:0}}
 .leaflet-popup-content-wrapper{background:transparent;border:none;box-shadow:none;padding:0;}
 .leaflet-popup-tip{display:none;}
 .leaflet-popup-content{margin:0;}
@@ -275,6 +292,36 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <tbody id="missile-tbody"></tbody>
     </table>
   </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">SSBN Submarines</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Boat</th><th>SLBM</th><th>Status</th></tr>
+      </thead>
+      <tbody id="sub-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Strategic Aircraft</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Bomber</th><th>Base</th><th>Status</th></tr>
+      </thead>
+      <tbody id="air-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Missile Defense (GBI)</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Site</th><th>GBI</th><th>Status</th></tr>
+      </thead>
+      <tbody id="gbi-tbody"></tbody>
+    </table>
+  </div>
 </aside>
 
 <!-- MAIN CONTENT -->
@@ -305,7 +352,15 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="legend-item"><div class="legend-dot" style="background:#ffaa00;"></div><span class="legend-label">Elevated / Movement</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:#00ff88;"></div><span class="legend-label">Nominal / Monitoring</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:#00aaff;"></div><span class="legend-label">Test / Exercise</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">◆</span><span class="legend-label">SSBN Submarine</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#b07bff;">▲</span><span class="legend-label">Strategic Bomber</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#00ff88;">✛</span><span class="legend-label">GBI Defense Site</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:rgba(255,51,51,0.2);width:14px;height:14px;border-radius:0;"></div><span class="legend-label">Blast Radius (sim)</span></div>
+    </div>
+
+    <div class="launch-control">
+      <button id="launch-btn" class="launch-btn" type="button">⚠ Simulate Launch</button>
+      <div class="launch-status" id="launch-status">DPRK → CONUS · GBI defense armed</div>
     </div>
   </div>
 
@@ -391,6 +446,39 @@ const MISSILE_SYSTEMS = [
   {system:"Hwasong-17",    range:"15,000km", status:"test",     label:"TEST PREP"},
   {system:"Agni-V",        range:"5,500km",  status:"standby",  label:"STANDBY"}
 ];
+
+// Ballistic-missile submarines (SSBN) — plotted at notional at-sea patrol boxes.
+const SUBMARINES = [
+  {name:"USS Pennsylvania",     cls:"Ohio",   flag:"🇺🇸", slbm:"20× Trident II D5", lat:25,  lng:-160, status:"active",   label:"PATROL"},
+  {name:"HMS Vanguard",         cls:"Vanguard",flag:"🇬🇧", slbm:"16× Trident II D5", lat:58,  lng:-20,  status:"active",   label:"PATROL"},
+  {name:"Le Triomphant",        cls:"Triomphant",flag:"🇫🇷", slbm:"16× M51",        lat:45,  lng:-10,  status:"active",   label:"PATROL"},
+  {name:"Yuri Dolgorukiy",      cls:"Borei",  flag:"🇷🇺", slbm:"16× RSM-56 Bulava", lat:73,  lng:40,   status:"elevated", label:"DEPLOYED"},
+  {name:"Changzheng 10",        cls:"Type 094",flag:"🇨🇳", slbm:"12× JL-2 / JL-3",  lat:16,  lng:113,  status:"standby",  label:"STANDBY"}
+];
+
+// Strategic bombers — plotted at home airbases.
+const AIRCRAFT = [
+  {name:"B-2 Spirit",          base:"Whiteman AFB",  flag:"🇺🇸", load:"16× B61/B83",   lat:38.73, lng:-93.55,  status:"active",   label:"ALERT"},
+  {name:"B-52H Stratofortress",base:"Minot AFB",     flag:"🇺🇸", load:"20× AGM-86",    lat:48.42, lng:-101.36, status:"active",   label:"ALERT"},
+  {name:"Tu-160 Blackjack",    base:"Engels-2",      flag:"🇷🇺", load:"12× Kh-102",    lat:51.48, lng:46.18,   status:"elevated", label:"ELEVATED"},
+  {name:"Tu-95MS Bear",        base:"Ukrainka",      flag:"🇷🇺", load:"16× Kh-55",     lat:51.17, lng:128.45,  status:"standby",  label:"STANDBY"},
+  {name:"H-6N",                base:"Neixiang",      flag:"🇨🇳", load:"6× CJ-20A",     lat:33.05, lng:111.85,  status:"standby",  label:"STANDBY"}
+];
+
+// Ground-Based Interceptor (GBI) midcourse-defense sites.
+const GBI_SITES = [
+  {name:"Fort Greely",      region:"Alaska, USA",     flag:"🇺🇸", interceptors:40, lat:63.95, lng:-145.73, status:"active", label:"ARMED"},
+  {name:"Vandenberg SFB",   region:"California, USA", flag:"🇺🇸", interceptors:4,  lat:34.73, lng:-120.57, status:"active", label:"ARMED"}
+];
+
+// Interactive launch simulation: DPRK ICBM vs. GBI midcourse defense.
+const LAUNCH_SCENARIO = {
+  from:[40, 127],                 // DPRK launch area
+  to:[39.5, -98.35],              // CONUS aimpoint
+  interceptorSite:[63.95, -145.73], // Fort Greely GBI
+  interceptFraction:0.62,         // midcourse intercept point along the arc
+  interceptPk:0.7                 // probability of kill per engagement
+};
 
 const DEFCON_LEVELS = [
   {num:1, color:"#ff0000", name:"MAXIMUM FORCE READINESS", desc:"Nuclear war imminent or ongoing"},
@@ -507,6 +595,19 @@ function renderMissiles(){
       <td>${esc(m.range)}</td>
       <td class="td-status-${m.status}">${esc(m.label)}</td>`;
     tbody.appendChild(row);
+  });
+}
+
+// Generic 3-column inventory renderer for platform tables.
+function renderInventory(selector, rows, cols){
+  const tbody = $(selector);
+  rows.forEach((r) => {
+    const tr = el("tr");
+    tr.innerHTML = `
+      <td class="td-system">${cols[0](r)}</td>
+      <td>${esc(cols[1](r))}</td>
+      <td class="td-status-${r.status}">${esc(r.label)}</td>`;
+    tbody.appendChild(tr);
   });
 }
 
@@ -672,6 +773,49 @@ function nationPopupHtml(n){
     </div>`;
 }
 
+// Glyph marker shared by submarines / bombers / GBI sites.
+function platformIcon(glyph, color, size){
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div class="platform-marker" style="width:${size}px;height:${size}px;background:${color}22;border:1px solid ${color};box-shadow:0 0 8px ${color}66;color:${color};">${glyph}</div>`
+  });
+}
+
+function platformPopupHtml(title, color, lines){
+  const body = lines.map((l) => `<div>${esc(l)}</div>`).join("");
+  return `
+    <div style="background:#0d1318;color:#d0e8d8;padding:12px;border-radius:6px;min-width:180px;font-family:'Share Tech Mono',monospace;font-size:12px;border:1px solid ${color}44;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:${color};margin-bottom:6px;">${esc(title)}</div>
+      ${body}
+    </div>`;
+}
+
+function addPlatformLayers(){
+  SUBMARINES.forEach((s) => {
+    L.marker([s.lat, s.lng], {icon: platformIcon("◆", "#00aaff", 22), title: s.name})
+      .bindPopup(platformPopupHtml(`${s.flag} ${s.name}`, "#00aaff",
+        [`Class: ${s.cls}`, `Armament: ${s.slbm}`, `Status: ${s.label}`]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  AIRCRAFT.forEach((a) => {
+    L.marker([a.lat, a.lng], {icon: platformIcon("▲", "#b07bff", 22), title: a.name})
+      .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, "#b07bff",
+        [`Base: ${a.base}`, `Armament: ${a.load}`, `Status: ${a.label}`]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  GBI_SITES.forEach((g) => {
+    L.circle([g.lat, g.lng], {radius: 2500000, color: "#00ff88", weight: 1, opacity: 0.25, fillColor: "#00ff88", fillOpacity: 0.03}).addTo(map);
+    L.marker([g.lat, g.lng], {icon: platformIcon("✛", "#00ff88", 22), title: g.name})
+      .bindPopup(platformPopupHtml(`${g.flag} ${g.name}`, "#00ff88",
+        [g.region, `Interceptors: ${g.interceptors} GBI`, `Status: ${g.label}`]), {className: "custom-popup"})
+      .addTo(map);
+  });
+}
+
 function buildMissileArc(from, to){
   const latlngs = [];
   const steps = 50;
@@ -716,6 +860,88 @@ function initMap(){
       color: a.color, weight: 1.5, opacity: 0.6, dashArray: "6,6"
     }).addTo(map);
   });
+
+  addPlatformLayers();
+}
+
+/* ──────────────── LAUNCH SIMULATION ──────────────── */
+let launchActive = false;
+let launchLayers = [];
+
+function clearLaunch(){
+  launchLayers.forEach((layer) => map.removeLayer(layer));
+  launchLayers = [];
+}
+
+function burstAt(latlng, color, size){
+  const marker = L.marker(latlng, {
+    icon: L.divIcon({
+      className: "",
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div class="burst" style="width:${size}px;height:${size}px;background:radial-gradient(circle,${color} 0%,${color}88 40%,transparent 70%);"></div>`
+    })
+  }).addTo(map);
+  launchLayers.push(marker);
+  setTimeout(() => map.removeLayer(marker), 900);
+}
+
+function simulateLaunch(){
+  if(launchActive || !map) return;
+  launchActive = true;
+  clearLaunch();
+
+  const btn = $("#launch-btn");
+  const statusEl = $("#launch-status");
+  btn.disabled = true;
+  statusEl.className = "launch-status";
+  statusEl.textContent = "LAUNCH DETECTED · tracking trajectory…";
+
+  const path = buildMissileArc(LAUNCH_SCENARIO.from, LAUNCH_SCENARIO.to);
+  const intercepted = Math.random() < LAUNCH_SCENARIO.interceptPk;
+  const endIdx = intercepted
+    ? Math.round((path.length - 1) * LAUNCH_SCENARIO.interceptFraction)
+    : path.length - 1;
+
+  launchLayers.push(
+    L.polyline(path, {color: "#ff6600", weight: 1, opacity: 0.4, dashArray: "4,6"}).addTo(map)
+  );
+
+  const warhead = L.marker(path[0], {
+    icon: L.divIcon({className: "", iconSize: [12, 12], iconAnchor: [6, 6], html: `<div class="warhead-dot"></div>`})
+  }).addTo(map);
+  const trail = L.polyline([path[0]], {color: "#ff3333", weight: 2, opacity: 0.85}).addTo(map);
+  launchLayers.push(warhead, trail);
+
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const duration = reduced ? 0 : 5200;
+  const startTime = performance.now();
+
+  function step(now){
+    const t = duration ? Math.min((now - startTime) / duration, 1) : 1;
+    const idx = Math.round(t * endIdx);
+    warhead.setLatLng(path[idx]);
+    trail.setLatLngs(path.slice(0, idx + 1));
+    if(t < 1){ requestAnimationFrame(step); return; }
+
+    map.removeLayer(warhead);
+    if(intercepted){
+      launchLayers.push(
+        L.polyline([LAUNCH_SCENARIO.interceptorSite, path[endIdx]],
+          {color: "#00ff88", weight: 1.5, opacity: 0.8, dashArray: "3,4"}).addTo(map)
+      );
+      burstAt(path[endIdx], "#00ff88", 70);
+      statusEl.className = "launch-status intercepted";
+      statusEl.textContent = "✔ INTERCEPTED — GBI kill vehicle hit at midcourse";
+    }else{
+      burstAt(path[endIdx], "#ff3333", 90);
+      statusEl.className = "launch-status impact";
+      statusEl.textContent = "✖ IMPACT — interceptors missed (CONUS)";
+    }
+    launchActive = false;
+    btn.disabled = false;
+  }
+  requestAnimationFrame(step);
 }
 
 /* ──────────────── NATION SELECTION ──────────────── */
@@ -740,6 +966,9 @@ function selectNation(key){
 function init(){
   renderNations();
   renderMissiles();
+  renderInventory("#sub-tbody", SUBMARINES, [(s) => `${s.flag} ${esc(s.name)}`, (s) => s.slbm]);
+  renderInventory("#air-tbody", AIRCRAFT, [(a) => `${a.flag} ${esc(a.name)}`, (a) => a.base]);
+  renderInventory("#gbi-tbody", GBI_SITES, [(g) => `${g.flag} ${esc(g.name)}`, (g) => `${g.interceptors} GBI`]);
   renderAlerts();
   renderDefcon();
   renderArsenalChart();
@@ -753,6 +982,14 @@ function init(){
 
   if(window.L) initMap();
   if(window.lucide) lucide.createIcons();
+
+  const launchBtn = $("#launch-btn");
+  if(window.L){
+    launchBtn.addEventListener("click", simulateLaunch);
+  }else{
+    launchBtn.disabled = true;
+    $("#launch-status").textContent = "Map unavailable — launch sim offline";
+  }
 
   const {totalWarheads, threats} = totals();
   highlightNation("usa");
