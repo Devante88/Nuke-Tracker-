@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: pages-deploy
@@ -18,6 +19,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Publish site to gh-pages branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,3 +35,20 @@ jobs:
           git add -A
           git commit -qm "Deploy ${GITHUB_SHA} to GitHub Pages"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages
+
+      - name: Ensure Pages is enabled (source = gh-pages /root)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+          hdr=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          body='{"source":{"branch":"gh-pages","path":"/"}}'
+          code=$(curl -sS -o /tmp/pages.json -w "%{http_code}" -X POST "${hdr[@]}" "$api" -d "$body" || echo "000")
+          echo "POST /pages -> $code"; cat /tmp/pages.json 2>/dev/null || true; echo
+          if [ "$code" = "409" ]; then
+            code=$(curl -sS -o /tmp/pages.json -w "%{http_code}" -X PUT "${hdr[@]}" "$api" -d "$body" || echo "000")
+            echo "PUT /pages -> $code"
+          fi
+          # Request a build so the new content is published
+          curl -sS -o /dev/null -X POST "${hdr[@]}" "$api/builds" || true
+          echo "Pages source set to gh-pages /root (if HTTP was 201/204)."
