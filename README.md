@@ -18,9 +18,12 @@ interactive world map.
 - **Interactive map** of nine nuclear-armed states, sized by arsenal, framed by a tactical HUD
   (corner brackets, vignette, radar sweep). The basemap is a **bundled world GeoJSON drawn as
   vectors by Leaflet** — no tile server, so it renders with zero network access.
-- **Strategic platforms** — SSBN submarines, strategic bombers, and Ground-Based Interceptor
-  (GBI) defense sites. Click any sidebar inventory row (or focus it and press Enter) to fly the
-  map to that platform and open its readout.
+- **Strategic platforms & bases** — SSBN submarines, strategic bombers, Ground-Based Interceptor
+  (GBI) defense sites, and the three US ICBM ground bases (Minuteman wings). Click any sidebar
+  inventory row (or focus it and press Enter) to fly the map to that asset and open its readout.
+- **Satellite tracking** — an animated monitoring constellation rides sinusoidal ground tracks
+  and beams down to the assets it watches: US GBI sites, SSBN patrols, and ICBM ground bases.
+  Toggle it from the map, and the "Monitoring Satellites" KPI reflects the live count.
 - **Interactive DEFCON scale** — click any of the five levels to set the global posture; the
   header badge updates its number, status codeword, and color.
 - **Launch simulation** — animates a notional ICBM trajectory and probabilistically engages

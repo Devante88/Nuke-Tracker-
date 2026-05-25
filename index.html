@@ -69,7 +69,7 @@ img{display:block;max-width:100%;}
 body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
 
 /* LAYOUT */
-.app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:260px 1fr 280px;grid-template-areas:"header header header""sidebar main rightpanel";min-height:100dvh;}
+.app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:260px 1fr 280px;grid-template-areas:"header header header""sidebar main rightpanel";height:100dvh;}
 
 /* HEADER */
 .header{grid-area:header;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:var(--space-3) var(--space-6);background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
@@ -88,7 +88,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .clock{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-muted);letter-spacing:0.05em;}
 
 /* SIDEBAR */
-.sidebar{grid-area:sidebar;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar{grid-area:sidebar;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
 .sidebar-section{padding:var(--space-4);}
 .sidebar-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border);}
 .nation-card{display:flex;align-items:center;gap:var(--space-3);width:100%;padding:var(--space-3);border-radius:var(--radius-md);border:1px solid transparent;transition:background var(--transition),border-color var(--transition);margin-bottom:var(--space-2);}
@@ -112,7 +112,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .dot-critical{background:var(--danger);}
 
 /* MAIN */
-.main{grid-area:main;display:flex;flex-direction:column;overflow-y:auto;}
+.main{grid-area:main;display:flex;flex-direction:column;overflow-y:auto;min-width:0;min-height:0;}
 .map-wrapper{position:relative;flex:1;min-height:480px;}
 #map{width:100%;height:100%;min-height:480px;background:#080c0f;}
 .map-overlay-top{position:absolute;top:var(--space-3);left:var(--space-3);right:var(--space-3);z-index:10;display:flex;flex-wrap:wrap;gap:var(--space-3);pointer-events:none;}
@@ -146,7 +146,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .badge-nominal{background:rgba(0,168,85,0.1);color:var(--accent-dim);border:1px solid rgba(0,168,85,0.2);}
 
 /* RIGHT PANEL */
-.right-panel{grid-area:rightpanel;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.right-panel{grid-area:rightpanel;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
 .rp-section{padding:var(--space-4);border-bottom:1px solid var(--border);}
 .rp-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:var(--space-3);}
 .alert-item{display:flex;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid rgba(255,255,255,0.04);}
@@ -212,9 +212,13 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .launch-status{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);background:rgba(13,19,24,0.92);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-1) var(--space-2);backdrop-filter:blur(8px);}
 .launch-status.intercepted{color:var(--accent);border-color:var(--accent-dim);}
 .launch-status.impact{color:var(--danger);border-color:var(--border-danger);}
+.sat-btn{background:linear-gradient(90deg,#007a66,#00e0c0);border-color:#00e0c0;color:#012;box-shadow:0 0 12px rgba(0,224,192,0.25);}
+.sat-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(0,224,192,0.5);}
+.sat-btn.off{background:linear-gradient(90deg,#1a2a30,#22343c);border-color:var(--border);color:var(--text-muted);box-shadow:none;}
 
 /* LEGEND GLYPHS */
 .legend-glyph{width:10px;text-align:center;font-size:0.8rem;line-height:1;}
+.legend-dash{display:inline-block;width:12px;height:0;border-top:1px dashed;}
 
 /* LEAFLET MARKER + POPUP OVERRIDES */
 .nuke-marker{position:relative;display:flex;align-items:center;justify-content:center;border-radius:50%;}
@@ -371,6 +375,26 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <tbody id="gbi-tbody"></tbody>
     </table>
   </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">ICBM Ground Bases</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Base</th><th>State</th><th>Status</th></tr>
+      </thead>
+      <tbody id="base-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Satellite Tracking</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Satellite</th><th>Tracks</th><th>Status</th></tr>
+      </thead>
+      <tbody id="sat-tbody"></tbody>
+    </table>
+  </div>
 </aside>
 
 <!-- MAIN CONTENT -->
@@ -398,7 +422,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       </div>
       <div class="map-kpi">
         <div class="kpi-label">Monitoring Satellites</div>
-        <div class="kpi-value blue">14</div>
+        <div class="kpi-value blue" id="kpi-satellites">0</div>
       </div>
     </div>
     <div class="map-legend">
@@ -410,12 +434,16 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">◆</span><span class="legend-label">SSBN Submarine</span></div>
       <div class="legend-item"><span class="legend-glyph" style="color:#b07bff;">▲</span><span class="legend-label">Strategic Bomber</span></div>
       <div class="legend-item"><span class="legend-glyph" style="color:#00ff88;">✛</span><span class="legend-label">GBI Defense Site</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#ffae34;">◎</span><span class="legend-label">ICBM Ground Base</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#cfe8ff;">✦</span><span class="legend-label">Tracking Satellite</span></div>
+      <div class="legend-item"><span class="legend-dash" style="border-color:#00ffcc;"></span><span class="legend-label">Satellite Track Beam</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:rgba(255,51,51,0.2);width:14px;height:14px;border-radius:0;"></div><span class="legend-label">Blast Radius (sim)</span></div>
     </div>
 
     <div class="launch-control">
       <button id="launch-btn" class="launch-btn" type="button">⚠ Simulate Launch</button>
       <div class="launch-status" id="launch-status">DPRK → CONUS · GBI defense armed</div>
+      <button id="sat-btn" class="launch-btn sat-btn" type="button" aria-pressed="true">🛰 Satellite Tracking: ON</button>
     </div>
   </div>
 
@@ -524,6 +552,25 @@ const AIRCRAFT = [
 const GBI_SITES = [
   {key:"gbi-greely",     name:"Fort Greely",    region:"Alaska, USA",     flag:"🇺🇸", interceptors:40, lat:63.95, lng:-145.73, status:"active", label:"ARMED"},
   {key:"gbi-vandenberg", name:"Vandenberg SFB", region:"California, USA", flag:"🇺🇸", interceptors:4,  lat:34.73, lng:-120.57, status:"active", label:"ARMED"}
+];
+
+// US ICBM ground bases — the three Minuteman III missile wings.
+const GROUND_BASES = [
+  {key:"base-malmstrom", name:"Malmstrom AFB", flag:"🇺🇸", region:"Montana",      wing:"341st MW · 150× LGM-30G", lat:47.50, lng:-111.18, status:"active", label:"ALERT"},
+  {key:"base-minot-mw",  name:"Minot AFB",     flag:"🇺🇸", region:"N. Dakota",    wing:"91st MW · 150× LGM-30G",  lat:48.10, lng:-101.30, status:"active", label:"ALERT"},
+  {key:"base-warren",    name:"F.E. Warren AFB",flag:"🇺🇸", region:"Wyoming",      wing:"90th MW · 150× LGM-30G",  lat:41.15, lng:-104.87, status:"active", label:"ALERT"}
+];
+
+// Simulated monitoring-satellite constellation. Each satellite rides a sinusoidal
+// ground track; the three tracking birds beam down to every asset in their category
+// (GBI sites, SSBN patrols, ICBM ground bases). tracks:null = wide-area ISR, no beams.
+const SATELLITES = [
+  {key:"sat-gssap", name:"GSSAP-4",     type:"Space Surveillance",     incl:52, node:-110, period:46,  dir: 1, tracks:"gbi",  tracksLabel:"US GBI sites",       glyphColor:"#00ff88", status:"active", label:"TRACKING"},
+  {key:"sat-noss",  name:"NOSS-3 Triad",type:"Ocean Surveillance",     incl:63, node:20,   period:40,  dir: 1, tracks:"sub",  tracksLabel:"SSBN patrols",       glyphColor:"#00aaff", status:"active", label:"TRACKING"},
+  {key:"sat-sbirs", name:"SBIRS GEO-6", type:"Missile Early-Warning",  incl:14, node:-95,  period:120, dir: 1, tracks:"base", tracksLabel:"ICBM ground bases", glyphColor:"#ffae34", status:"active", label:"TRACKING"},
+  {key:"sat-kh11",  name:"KH-11 NRO-21",type:"Imaging Reconnaissance", incl:50, node:150,  period:44,  dir:-1, tracks:null,   tracksLabel:"Wide-area ISR",      glyphColor:"#cfe8ff", status:"active", label:"ONLINE"},
+  {key:"sat-topaz", name:"Topaz-5",     type:"Radar Imaging",          incl:57, node:-40,  period:48,  dir: 1, tracks:null,   tracksLabel:"Wide-area ISR",      glyphColor:"#cfe8ff", status:"active", label:"ONLINE"},
+  {key:"sat-aehf",  name:"AEHF-7",      type:"Secure Comms Relay",     incl:30, node:90,   period:60,  dir:-1, tracks:null,   tracksLabel:"C2 relay",           glyphColor:"#cfe8ff", status:"active", label:"ONLINE"}
 ];
 
 // Interactive launch simulation: DPRK ICBM vs. GBI midcourse defense.
@@ -900,16 +947,25 @@ function addPlatformLayers(){
   });
 
   GBI_SITES.forEach((g) => {
-    L.circle([g.lat, g.lng], {radius: 2500000, color: "#00ff88", weight: 1, opacity: 0.25, fillColor: "#00ff88", fillOpacity: 0.03}).addTo(map);
+    L.circle([g.lat, g.lng], {radius: 2500000, color: "#00ff88", weight: 1, opacity: 0.25, fillColor: "#00ff88", fillOpacity: 0.03, interactive: false}).addTo(map);
     platformMarkers[g.key] = L.marker([g.lat, g.lng], {icon: platformIcon("✛", "#00ff88", 22), title: g.name})
       .bindPopup(platformPopupHtml(`${g.flag} ${g.name}`, "#00ff88",
         [g.region, `Interceptors: ${g.interceptors} GBI`, `Status: ${g.label}`]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  GROUND_BASES.forEach((b) => {
+    platformMarkers[b.key] = L.marker([b.lat, b.lng], {icon: platformIcon("◎", "#ffae34", 20), title: b.name})
+      .bindPopup(platformPopupHtml(`${b.flag} ${b.name}`, "#ffae34",
+        [b.region, b.wing, `Status: ${b.label}`]), {className: "custom-popup"})
       .addTo(map);
   });
 }
 
 // Fly the map to a platform marker and highlight its inventory row.
 function focusPlatform(key){
+  // Satellites live on a toggleable layer — switch it on before focusing one.
+  if(key.startsWith("sat-") && !satState.active) setSatellites(true);
   const marker = platformMarkers[key];
   if(!marker || !map) return;
   map.flyTo(marker.getLatLng(), 4, {duration: 0.8});
@@ -917,6 +973,89 @@ function focusPlatform(key){
   document.querySelectorAll(".tracker-table tbody tr.row-active")
     .forEach((row) => row.classList.remove("row-active"));
   document.querySelector(`.tracker-table tbody tr[data-focus="${key}"]`)?.classList.add("row-active");
+}
+
+/* ──────────────── SATELLITE TRACKING ──────────────── */
+const SAT_TARGETS = {gbi: GBI_SITES, sub: SUBMARINES, base: GROUND_BASES};
+let satGroup = null;
+const satState = {active: false, rafId: null, startTs: 0, lastUpdate: 0, markers: [], beams: []};
+
+// Sinusoidal ground track: longitude advances with time and wraps; latitude
+// follows a sine of the offset from the ascending node, scaled by inclination.
+function satPosition(sat, tSec){
+  let lng = sat.node + sat.dir * (tSec / sat.period) * 360;
+  lng = ((lng + 180) % 360 + 360) % 360 - 180;
+  const lat = Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180)));
+  return [lat, lng];
+}
+
+function buildSatelliteLayer(){
+  satGroup = L.layerGroup();
+  SATELLITES.forEach((sat) => {
+    const track = [];
+    for(let lng = -180; lng <= 180; lng += 4){
+      track.push([Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180))), lng]);
+    }
+    L.polyline(track, {color: sat.glyphColor, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(satGroup);
+
+    (SAT_TARGETS[sat.tracks] || []).forEach((target) => {
+      const line = L.polyline([[0, 0], [0, 0]], {color: sat.glyphColor, weight: 1, opacity: 0, dashArray: "2,6", interactive: false}).addTo(satGroup);
+      satState.beams.push({sat, target, line});
+    });
+
+    const marker = L.marker(satPosition(sat, 0), {icon: platformIcon("✦", sat.glyphColor, 18), title: sat.name})
+      .bindPopup(platformPopupHtml(`✦ ${sat.name}`, sat.glyphColor,
+        [sat.type, `Tracking: ${sat.tracksLabel}`, "Status: ACTIVE"]), {className: "custom-popup"});
+    satGroup.addLayer(marker);
+    platformMarkers[sat.key] = marker;
+    satState.markers.push({sat, marker});
+  });
+}
+
+function updateSatellites(tSec){
+  const pos = {};
+  satState.markers.forEach(({sat, marker}) => { const p = satPosition(sat, tSec); pos[sat.key] = p; marker.setLatLng(p); });
+  satState.beams.forEach(({sat, target, line}) => {
+    const sp = pos[sat.key];
+    line.setLatLngs([sp, [target.lat, target.lng]]);
+    const dist = map.distance(sp, [target.lat, target.lng]);  // metres
+    line.setStyle({opacity: Math.max(0.05, 0.5 * (1 - dist / 20000000))});
+  });
+}
+
+function satLoop(now){
+  if(!satState.active) return;
+  if(now - satState.lastUpdate > 33){            // ~30fps is plenty for slow orbits
+    updateSatellites((now - satState.startTs) / 1000);
+    satState.lastUpdate = now;
+  }
+  satState.rafId = requestAnimationFrame(satLoop);
+}
+
+function setSatellites(on){
+  if(!satGroup) return;
+  satState.active = on;
+  const btn = $("#sat-btn");
+  if(btn){
+    btn.setAttribute("aria-pressed", String(on));
+    btn.textContent = `🛰 Satellite Tracking: ${on ? "ON" : "OFF"}`;
+    btn.classList.toggle("off", !on);
+  }
+  if(on){
+    satGroup.addTo(map);
+    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+    if(reduced){
+      updateSatellites(0);                        // static snapshot, no animation
+    }else{
+      satState.startTs = performance.now();
+      satState.lastUpdate = 0;
+      satState.rafId = requestAnimationFrame(satLoop);
+    }
+  }else{
+    if(satState.rafId) cancelAnimationFrame(satState.rafId);
+    satState.rafId = null;
+    map.removeLayer(satGroup);
+  }
 }
 
 function buildMissileArc(from, to){
@@ -964,18 +1103,20 @@ function initMap(){
 
   BLAST_ZONES.forEach((z) => {
     L.circle([z.lat, z.lng], {
-      radius: z.radius, color: z.color, weight: 1,
+      radius: z.radius, color: z.color, weight: 1, interactive: false,
       opacity: 0.3, fillColor: z.color, fillOpacity: 0.04
     }).addTo(map);
   });
 
   MISSILE_ARCS.forEach((a) => {
     L.polyline(buildMissileArc(a.from, a.to), {
-      color: a.color, weight: 1.5, opacity: 0.6, dashArray: "6,6"
+      color: a.color, weight: 1.5, opacity: 0.6, dashArray: "6,6", interactive: false
     }).addTo(map);
   });
 
   addPlatformLayers();
+  buildSatelliteLayer();
+  setSatellites(true);
 
   // Leaflet can mis-measure its container inside a CSS grid/flex layout,
   // leaving the map gray until the size is recomputed.
@@ -995,6 +1136,7 @@ function clearLaunch(){
 
 function burstAt(latlng, color, size){
   const marker = L.marker(latlng, {
+    interactive: false,
     icon: L.divIcon({
       className: "",
       iconSize: [size, size],
@@ -1024,13 +1166,14 @@ function simulateLaunch(){
     : path.length - 1;
 
   launchLayers.push(
-    L.polyline(path, {color: "#ff6600", weight: 1, opacity: 0.4, dashArray: "4,6"}).addTo(map)
+    L.polyline(path, {color: "#ff6600", weight: 1, opacity: 0.4, dashArray: "4,6", interactive: false}).addTo(map)
   );
 
   const warhead = L.marker(path[0], {
+    interactive: false,
     icon: L.divIcon({className: "", iconSize: [12, 12], iconAnchor: [6, 6], html: `<div class="warhead-dot"></div>`})
   }).addTo(map);
-  const trail = L.polyline([path[0]], {color: "#ff3333", weight: 2, opacity: 0.85}).addTo(map);
+  const trail = L.polyline([path[0]], {color: "#ff3333", weight: 2, opacity: 0.85, interactive: false}).addTo(map);
   launchLayers.push(warhead, trail);
 
   const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
@@ -1048,7 +1191,7 @@ function simulateLaunch(){
     if(intercepted){
       launchLayers.push(
         L.polyline([LAUNCH_SCENARIO.interceptorSite, path[endIdx]],
-          {color: "#00ff88", weight: 1.5, opacity: 0.8, dashArray: "3,4"}).addTo(map)
+          {color: "#00ff88", weight: 1.5, opacity: 0.8, dashArray: "3,4", interactive: false}).addTo(map)
       );
       burstAt(path[endIdx], "#00ff88", 70);
       statusEl.className = "launch-status intercepted";
@@ -1089,6 +1232,8 @@ function init(){
   renderInventory("#sub-tbody", SUBMARINES, [(s) => `${s.flag} ${esc(s.name)}`, (s) => s.slbm]);
   renderInventory("#air-tbody", AIRCRAFT, [(a) => `${a.flag} ${esc(a.name)}`, (a) => a.base]);
   renderInventory("#gbi-tbody", GBI_SITES, [(g) => `${g.flag} ${esc(g.name)}`, (g) => `${g.interceptors} GBI`]);
+  renderInventory("#base-tbody", GROUND_BASES, [(b) => `${b.flag} ${esc(b.name)}`, (b) => b.region]);
+  renderInventory("#sat-tbody", SATELLITES, [(s) => `✦ ${esc(s.name)}`, (s) => s.tracksLabel]);
   renderAlerts();
   setActiveDefcon(activeDefcon);
   renderArsenalChart();
@@ -1103,10 +1248,13 @@ function init(){
   if(window.L) initMap();
 
   const launchBtn = $("#launch-btn");
+  const satBtn = $("#sat-btn");
   if(window.L){
     launchBtn.addEventListener("click", simulateLaunch);
+    satBtn.addEventListener("click", () => setSatellites(!satState.active));
   }else{
     launchBtn.disabled = true;
+    satBtn.disabled = true;
     $("#launch-status").textContent = "Map unavailable — launch sim offline";
     $("#map-loader").textContent = "Map library unavailable — offline";
   }
@@ -1118,6 +1266,7 @@ function init(){
     setTimeout(() => animateCounter($("#kpi-warheads"), totalWarheads), 300);
     setTimeout(() => animateCounter($("#kpi-threats"), threats), 600);
     setTimeout(() => animateCounter($("#kpi-movements"), movements), 900);
+    setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200);
   });
 }
 
