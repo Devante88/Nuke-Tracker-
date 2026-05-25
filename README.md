@@ -24,10 +24,16 @@ interactive world map.
 - **Satellite tracking** — an animated monitoring constellation rides sinusoidal ground tracks
   and beams down to the assets it watches: US GBI sites, SSBN patrols, and ICBM ground bases.
   Toggle it from the map, and the "Monitoring Satellites" KPI reflects the live count.
+- **Triad movement tracking** — mobile nuclear forces animate across all three domains:
+  **ground** (road-mobile TELs), **air** (bomber patrols), and **water** (SSBN patrols), each
+  riding a patrol route with a live trail. Toggle from the map; listed in the sidebar.
+- **Arsenal-development indicator** — every nation shows its program trajectory (expanding,
+  growing, modernizing, or stable) on its sidebar card and in a dedicated development panel.
 - **Interactive DEFCON scale** — click any of the five levels to set the global posture; the
   header badge updates its number, status codeword, and color.
-- **Launch simulation** — animates a notional ICBM trajectory and probabilistically engages
-  it with GBI midcourse defense, showing an intercept or impact outcome.
+- **Launch simulation with ETA** — animates a notional ICBM trajectory, runs a live
+  **impact-ETA countdown** (boost → midcourse → terminal), and probabilistically engages it
+  with GBI midcourse defense, showing an intercept or impact outcome.
 - **Live panels** — rotating intel feed, arsenal comparison, geopolitical heat index, and
   projected launch windows.
 - Data-driven from a single set of arrays (totals and the movements KPI are derived, never
