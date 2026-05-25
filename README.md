@@ -11,14 +11,17 @@ interactive world map.
 
 ## Features
 
-- **Interactive map** (Leaflet + CARTO dark tiles) of nine nuclear-armed states, sized by arsenal.
+- **Interactive map** (Leaflet + CARTO dark tiles) of nine nuclear-armed states, sized by arsenal,
+  framed by a tactical HUD (corner brackets, vignette, radar sweep) and a satellite-uplink loader.
 - **Strategic platforms** — SSBN submarines, strategic bombers, and Ground-Based Interceptor
-  (GBI) defense sites, each with map markers and sidebar inventories.
+  (GBI) defense sites. Click any sidebar inventory row (or focus it and press Enter) to fly the
+  map to that platform and open its readout.
 - **Launch simulation** — animates a notional ICBM trajectory and probabilistically engages
   it with GBI midcourse defense, showing an intercept or impact outcome.
 - **Live panels** — rotating intel feed, DEFCON scale, arsenal comparison, geopolitical heat
   index, and projected launch windows.
-- Data-driven from a single set of arrays, responsive layout, and reduced-motion support.
+- Data-driven from a single set of arrays (totals and the movements KPI are derived, never
+  hand-typed), responsive layout, and reduced-motion support.
 
 ## Run locally
 

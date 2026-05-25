@@ -226,6 +226,45 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .leaflet-popup-tip{display:none;}
 .leaflet-popup-content{margin:0;}
 
+/* ─── ELEVATION: TACTICAL HUD + INTERACTION POLISH ─── */
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes radarSweep{to{transform:translate(-50%,-50%) rotate(360deg);}}
+@keyframes revealCol{from{opacity:0;}to{opacity:1;}}
+
+/* Staggered column reveal. Opacity-only and with no base opacity:0, so when
+   prefers-reduced-motion disables animation the panels simply show at full opacity. */
+.header{animation:revealCol 0.5s ease both;}
+.sidebar{animation:revealCol 0.5s ease 0.08s both;}
+.main{animation:revealCol 0.5s ease 0.16s both;}
+.right-panel{animation:revealCol 0.5s ease 0.24s both;}
+
+/* Rotating radar line inside the header logo */
+.logo-sweep{transform-origin:18px 18px;animation:spin 4s linear infinite;}
+
+/* Map tactical framing: vignette, corner brackets, faint radar sweep */
+.map-hud{position:absolute;inset:0;z-index:5;pointer-events:none;}
+.map-hud::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 140px rgba(0,0,0,0.6);}
+.hud-bracket{position:absolute;width:24px;height:24px;border:2px solid var(--accent);opacity:0.3;}
+.hud-bracket.tl{top:10px;left:10px;border-right:0;border-bottom:0;}
+.hud-bracket.tr{top:10px;right:10px;border-left:0;border-bottom:0;}
+.hud-bracket.bl{bottom:10px;left:10px;border-right:0;border-top:0;}
+.hud-bracket.br{bottom:10px;right:10px;border-left:0;border-top:0;}
+.radar-sweep{position:absolute;top:50%;left:50%;width:min(95%,820px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,var(--accent) 0deg,transparent 45deg);opacity:0.06;animation:radarSweep 9s linear infinite;}
+
+/* Satellite-uplink loader shown until the basemap tiles arrive */
+.map-loader{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;gap:var(--space-3);background:var(--bg);color:var(--accent-dim);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.18em;text-transform:uppercase;transition:opacity 0.6s ease;}
+.map-loader.hidden{opacity:0;pointer-events:none;}
+.map-loader__spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+
+/* KPI accent strip */
+.map-kpi{position:relative;overflow:hidden;}
+.map-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5;}
+
+/* Inventory rows are clickable and fly the map to that platform */
+.tracker-table tbody tr{cursor:pointer;transition:background var(--transition);}
+.tracker-table tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.tracker-table tbody tr.row-active td{background:var(--accent-glow);}
+
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -253,11 +292,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <circle cx="18" cy="18" r="17" stroke="#00ff88" stroke-width="1" opacity="0.4"/>
       <circle cx="18" cy="18" r="12" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
       <circle cx="18" cy="18" r="6" stroke="#00ff88" stroke-width="1" opacity="0.6"/>
-      <circle cx="18" cy="18" r="2" fill="#00ff88"/>
       <line x1="1" y1="18" x2="35" y2="18" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
       <line x1="18" y1="1" x2="18" y2="35" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
       <path d="M3 10 L33 10" stroke="#00ff88" stroke-width="0.3" opacity="0.2"/>
       <path d="M3 26 L33 26" stroke="#00ff88" stroke-width="0.3" opacity="0.2"/>
+      <line class="logo-sweep" x1="18" y1="18" x2="18" y2="3" stroke="#00ff88" stroke-width="1" opacity="0.85"/>
+      <circle cx="18" cy="18" r="2" fill="#00ff88"/>
     </svg>
     <div>
       <div class="header-title">NAGT // Nuclear Arms Global Tracker</div>
@@ -334,6 +374,12 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <main class="main">
   <div class="map-wrapper">
     <div id="map" role="region" aria-label="World map of nuclear-armed states and strategic platforms"></div>
+    <div class="map-hud" aria-hidden="true">
+      <span class="radar-sweep"></span>
+      <span class="hud-bracket tl"></span><span class="hud-bracket tr"></span>
+      <span class="hud-bracket bl"></span><span class="hud-bracket br"></span>
+    </div>
+    <div class="map-loader" id="map-loader"><span class="map-loader__spin"></span>Establishing satellite uplink…</div>
     <div class="map-overlay-top">
       <div class="map-kpi">
         <div class="kpi-label">Total Warheads</div>
@@ -432,15 +478,15 @@ const STATUS_COLORS = {
 };
 
 const NATIONS = [
-  {key:"usa",        name:"United States", short:"USA",      flag:"🇺🇸", warheads:5550, label:"5,550 warheads",      status:"elevated", lat:39.5, lng:-98.35, mapColor:"#ffaa00", size:18},
-  {key:"russia",     name:"Russia",        short:"Russia",   flag:"🇷🇺", warheads:6257, label:"6,257 warheads",      status:"elevated", lat:60,   lng:90,     mapColor:"#ff8800", size:22},
-  {key:"northkorea", name:"North Korea",   short:"DPRK",     flag:"🇰🇵", warheads:45,   label:"~40–50 warheads",     status:"critical", lat:40,   lng:127,    mapColor:"#ff3333", size:14},
-  {key:"china",      name:"China",         short:"China",    flag:"🇨🇳", warheads:350,  label:"~350 warheads",       status:"nominal",  lat:35,   lng:103,    mapColor:"#00ff88", size:12},
-  {key:"uk",         name:"United Kingdom",short:"UK",       flag:"🇬🇧", warheads:225,  label:"225 warheads",        status:"nominal",  lat:54,   lng:-3,     mapColor:"#00ff88", size:10},
-  {key:"france",     name:"France",        short:"France",   flag:"🇫🇷", warheads:290,  label:"290 warheads",        status:"nominal",  lat:46,   lng:2,      mapColor:"#00ff88", size:10},
-  {key:"india",      name:"India",         short:"India",    flag:"🇮🇳", warheads:160,  label:"~160 warheads",       status:"nominal",  lat:20,   lng:78,     mapColor:"#00ff88", size:9},
-  {key:"pakistan",   name:"Pakistan",      short:"Pakistan", flag:"🇵🇰", warheads:165,  label:"~165 warheads",       status:"nominal",  lat:30,   lng:69,     mapColor:"#00ff88", size:9},
-  {key:"israel",     name:"Israel",        short:"Israel",   flag:"🇮🇱", warheads:90,   label:"~90 warheads (est.)", status:"nominal",  lat:31.5, lng:34.8,   mapColor:"#00ff88", size:8}
+  {key:"usa",        name:"United States", short:"USA",      flag:"🇺🇸", warheads:5550, label:"5,550 warheads",      status:"elevated", lat:39.5, lng:-98.35, mapColor:"#ffaa00", size:18, forces:"Full triad — ICBM · SSBN · bombers"},
+  {key:"russia",     name:"Russia",        short:"Russia",   flag:"🇷🇺", warheads:6257, label:"6,257 warheads",      status:"elevated", lat:60,   lng:90,     mapColor:"#ff8800", size:22, forces:"Full triad — ICBM · SSBN · bombers"},
+  {key:"northkorea", name:"North Korea",   short:"DPRK",     flag:"🇰🇵", warheads:45,   label:"~40–50 warheads",     status:"critical", lat:40,   lng:127,    mapColor:"#ff3333", size:14, forces:"Road-mobile ICBM/MRBM · emerging SLBM"},
+  {key:"china",      name:"China",         short:"China",    flag:"🇨🇳", warheads:350,  label:"~350 warheads",       status:"nominal",  lat:35,   lng:103,    mapColor:"#00ff88", size:12, forces:"Expanding triad — ICBM · SSBN · bombers"},
+  {key:"uk",         name:"United Kingdom",short:"UK",       flag:"🇬🇧", warheads:225,  label:"225 warheads",        status:"nominal",  lat:54,   lng:-3,     mapColor:"#00ff88", size:10, forces:"Sea-based only — 4× Vanguard SSBN"},
+  {key:"france",     name:"France",        short:"France",   flag:"🇫🇷", warheads:290,  label:"290 warheads",        status:"nominal",  lat:46,   lng:2,      mapColor:"#00ff88", size:10, forces:"SSBN (M51) · air-launched ASMP-A"},
+  {key:"india",      name:"India",         short:"India",    flag:"🇮🇳", warheads:160,  label:"~160 warheads",       status:"nominal",  lat:20,   lng:78,     mapColor:"#00ff88", size:9,  forces:"Nascent triad — land · air · sea"},
+  {key:"pakistan",   name:"Pakistan",      short:"Pakistan", flag:"🇵🇰", warheads:165,  label:"~165 warheads",       status:"nominal",  lat:30,   lng:69,     mapColor:"#00ff88", size:9,  forces:"Land- & air-launched; no SSBN"},
+  {key:"israel",     name:"Israel",        short:"Israel",   flag:"🇮🇱", warheads:90,   label:"~90 warheads (est.)", status:"nominal",  lat:31.5, lng:34.8,   mapColor:"#00ff88", size:8,  forces:"Undeclared — air · land · sea (est.)"}
 ];
 
 const MISSILE_SYSTEMS = [
@@ -455,26 +501,26 @@ const MISSILE_SYSTEMS = [
 
 // Ballistic-missile submarines (SSBN) — plotted at notional at-sea patrol boxes.
 const SUBMARINES = [
-  {name:"USS Pennsylvania",     cls:"Ohio",   flag:"🇺🇸", slbm:"20× Trident II D5", lat:25,  lng:-160, status:"active",   label:"PATROL"},
-  {name:"HMS Vanguard",         cls:"Vanguard",flag:"🇬🇧", slbm:"16× Trident II D5", lat:58,  lng:-20,  status:"active",   label:"PATROL"},
-  {name:"Le Triomphant",        cls:"Triomphant",flag:"🇫🇷", slbm:"16× M51",        lat:45,  lng:-10,  status:"active",   label:"PATROL"},
-  {name:"Yuri Dolgorukiy",      cls:"Borei",  flag:"🇷🇺", slbm:"16× RSM-56 Bulava", lat:73,  lng:40,   status:"elevated", label:"DEPLOYED"},
-  {name:"Changzheng 10",        cls:"Type 094",flag:"🇨🇳", slbm:"12× JL-2 / JL-3",  lat:16,  lng:113,  status:"standby",  label:"STANDBY"}
+  {key:"ssbn-pennsylvania", name:"USS Pennsylvania",     cls:"Ohio",   flag:"🇺🇸", slbm:"20× Trident II D5", lat:25,  lng:-160, status:"active",   label:"PATROL"},
+  {key:"ssbn-vanguard",     name:"HMS Vanguard",         cls:"Vanguard",flag:"🇬🇧", slbm:"16× Trident II D5", lat:58,  lng:-20,  status:"active",   label:"PATROL"},
+  {key:"ssbn-triomphant",   name:"Le Triomphant",        cls:"Triomphant",flag:"🇫🇷", slbm:"16× M51",        lat:45,  lng:-10,  status:"active",   label:"PATROL"},
+  {key:"ssbn-dolgorukiy",   name:"Yuri Dolgorukiy",      cls:"Borei",  flag:"🇷🇺", slbm:"16× RSM-56 Bulava", lat:73,  lng:40,   status:"elevated", label:"DEPLOYED"},
+  {key:"ssbn-changzheng",   name:"Changzheng 10",        cls:"Type 094",flag:"🇨🇳", slbm:"12× JL-2 / JL-3",  lat:16,  lng:113,  status:"standby",  label:"STANDBY"}
 ];
 
 // Strategic bombers — plotted at home airbases.
 const AIRCRAFT = [
-  {name:"B-2 Spirit",          base:"Whiteman AFB",  flag:"🇺🇸", load:"16× B61/B83",   lat:38.73, lng:-93.55,  status:"active",   label:"ALERT"},
-  {name:"B-52H Stratofortress",base:"Minot AFB",     flag:"🇺🇸", load:"20× AGM-86",    lat:48.42, lng:-101.36, status:"active",   label:"ALERT"},
-  {name:"Tu-160 Blackjack",    base:"Engels-2",      flag:"🇷🇺", load:"12× Kh-102",    lat:51.48, lng:46.18,   status:"elevated", label:"ELEVATED"},
-  {name:"Tu-95MS Bear",        base:"Ukrainka",      flag:"🇷🇺", load:"16× Kh-55",     lat:51.17, lng:128.45,  status:"standby",  label:"STANDBY"},
-  {name:"H-6N",                base:"Neixiang",      flag:"🇨🇳", load:"6× CJ-20A",     lat:33.05, lng:111.85,  status:"standby",  label:"STANDBY"}
+  {key:"air-b2",    name:"B-2 Spirit",          base:"Whiteman AFB",  flag:"🇺🇸", load:"16× B61/B83",   lat:38.73, lng:-93.55,  status:"active",   label:"ALERT"},
+  {key:"air-b52h",  name:"B-52H Stratofortress",base:"Minot AFB",     flag:"🇺🇸", load:"20× AGM-86",    lat:48.42, lng:-101.36, status:"active",   label:"ALERT"},
+  {key:"air-tu160", name:"Tu-160 Blackjack",    base:"Engels-2",      flag:"🇷🇺", load:"12× Kh-102",    lat:51.48, lng:46.18,   status:"elevated", label:"ELEVATED"},
+  {key:"air-tu95",  name:"Tu-95MS Bear",        base:"Ukrainka",      flag:"🇷🇺", load:"16× Kh-55",     lat:51.17, lng:128.45,  status:"standby",  label:"STANDBY"},
+  {key:"air-h6n",   name:"H-6N",                base:"Neixiang",      flag:"🇨🇳", load:"6× CJ-20A",     lat:33.05, lng:111.85,  status:"standby",  label:"STANDBY"}
 ];
 
 // Ground-Based Interceptor (GBI) midcourse-defense sites.
 const GBI_SITES = [
-  {name:"Fort Greely",      region:"Alaska, USA",     flag:"🇺🇸", interceptors:40, lat:63.95, lng:-145.73, status:"active", label:"ARMED"},
-  {name:"Vandenberg SFB",   region:"California, USA", flag:"🇺🇸", interceptors:4,  lat:34.73, lng:-120.57, status:"active", label:"ARMED"}
+  {key:"gbi-greely",     name:"Fort Greely",    region:"Alaska, USA",     flag:"🇺🇸", interceptors:40, lat:63.95, lng:-145.73, status:"active", label:"ARMED"},
+  {key:"gbi-vandenberg", name:"Vandenberg SFB", region:"California, USA", flag:"🇺🇸", interceptors:4,  lat:34.73, lng:-120.57, status:"active", label:"ARMED"}
 ];
 
 // Interactive launch simulation: DPRK ICBM vs. GBI midcourse defense.
@@ -604,15 +650,24 @@ function renderMissiles(){
   });
 }
 
-// Generic 3-column inventory renderer for platform tables.
+// Generic 3-column inventory renderer for platform tables. Each row is a button
+// that flies the map to — and opens the popup for — its matching marker.
 function renderInventory(selector, rows, cols){
   const tbody = $(selector);
   rows.forEach((r) => {
     const tr = el("tr");
+    tr.dataset.focus = r.key;
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", `Locate ${r.name} on map`);
     tr.innerHTML = `
       <td class="td-system">${cols[0](r)}</td>
       <td>${esc(cols[1](r))}</td>
       <td class="td-status-${r.status}">${esc(r.label)}</td>`;
+    tr.addEventListener("click", () => focusPlatform(r.key));
+    tr.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); focusPlatform(r.key); }
+    });
     tbody.appendChild(tr);
   });
 }
@@ -747,12 +802,18 @@ function animateCounter(elNode, target){
 function totals(){
   const totalWarheads = NATIONS.reduce((sum, n) => sum + n.warheads, 0);
   const threats = NATIONS.filter((n) => n.status === "critical").length;
-  return {totalWarheads, threats};
+  // "Movements" = anything currently in an elevated or test posture, derived
+  // from the same data that drives the rest of the page.
+  const elevated = (arr) => arr.filter((x) => x.status === "elevated" || x.status === "test").length;
+  const movements = NATIONS.filter((n) => n.status === "elevated").length
+    + elevated(MISSILE_SYSTEMS) + elevated(SUBMARINES) + elevated(AIRCRAFT);
+  return {totalWarheads, threats, movements};
 }
 
 /* ──────────────── LEAFLET MAP ──────────────── */
 let map;
 const markers = {};
+const platformMarkers = {};
 
 function nationMarkerIcon(n){
   const pulse = n.status === "critical";
@@ -776,6 +837,7 @@ function nationPopupHtml(n){
       <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:${n.mapColor};margin-bottom:6px;">${esc(n.name)}</div>
       <div>Warheads: <span style="color:${n.mapColor};">${esc(n.label)}</span></div>
       <div>Status: <span style="color:${STATUS_COLORS[n.status]};text-transform:uppercase;">${n.status}</span></div>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid ${n.mapColor}33;color:#6b8a78;">${esc(n.forces)}</div>
     </div>`;
 }
 
@@ -800,14 +862,14 @@ function platformPopupHtml(title, color, lines){
 
 function addPlatformLayers(){
   SUBMARINES.forEach((s) => {
-    L.marker([s.lat, s.lng], {icon: platformIcon("◆", "#00aaff", 22), title: s.name})
+    platformMarkers[s.key] = L.marker([s.lat, s.lng], {icon: platformIcon("◆", "#00aaff", 22), title: s.name})
       .bindPopup(platformPopupHtml(`${s.flag} ${s.name}`, "#00aaff",
         [`Class: ${s.cls}`, `Armament: ${s.slbm}`, `Status: ${s.label}`]), {className: "custom-popup"})
       .addTo(map);
   });
 
   AIRCRAFT.forEach((a) => {
-    L.marker([a.lat, a.lng], {icon: platformIcon("▲", "#b07bff", 22), title: a.name})
+    platformMarkers[a.key] = L.marker([a.lat, a.lng], {icon: platformIcon("▲", "#b07bff", 22), title: a.name})
       .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, "#b07bff",
         [`Base: ${a.base}`, `Armament: ${a.load}`, `Status: ${a.label}`]), {className: "custom-popup"})
       .addTo(map);
@@ -815,11 +877,22 @@ function addPlatformLayers(){
 
   GBI_SITES.forEach((g) => {
     L.circle([g.lat, g.lng], {radius: 2500000, color: "#00ff88", weight: 1, opacity: 0.25, fillColor: "#00ff88", fillOpacity: 0.03}).addTo(map);
-    L.marker([g.lat, g.lng], {icon: platformIcon("✛", "#00ff88", 22), title: g.name})
+    platformMarkers[g.key] = L.marker([g.lat, g.lng], {icon: platformIcon("✛", "#00ff88", 22), title: g.name})
       .bindPopup(platformPopupHtml(`${g.flag} ${g.name}`, "#00ff88",
         [g.region, `Interceptors: ${g.interceptors} GBI`, `Status: ${g.label}`]), {className: "custom-popup"})
       .addTo(map);
   });
+}
+
+// Fly the map to a platform marker and highlight its inventory row.
+function focusPlatform(key){
+  const marker = platformMarkers[key];
+  if(!marker || !map) return;
+  map.flyTo(marker.getLatLng(), 4, {duration: 0.8});
+  marker.openPopup();
+  document.querySelectorAll(".tracker-table tbody tr.row-active")
+    .forEach((row) => row.classList.remove("row-active"));
+  document.querySelector(`.tracker-table tbody tr[data-focus="${key}"]`)?.classList.add("row-active");
 }
 
 function buildMissileArc(from, to){
@@ -839,13 +912,21 @@ function initMap(){
   map = L.map("map", {
     center: [30, 15],
     zoom: 2,
-    zoomControl: true,
+    zoomControl: false,
     attributionControl: false
   });
+  // Top-right keeps the zoom control clear of the HUD corner bracket and KPIs.
+  L.control.zoom({position: "topright"}).addTo(map);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  const tiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 18
   }).addTo(map);
+
+  // Drop the "uplink" overlay once the basemap paints; fall back after a few
+  // seconds so a slow or blocked tile CDN never leaves the spinner stuck.
+  const hideLoader = () => $("#map-loader")?.classList.add("hidden");
+  tiles.on("load", hideLoader);
+  setTimeout(hideLoader, 4000);
 
   NATIONS.forEach((n) => {
     const marker = L.marker([n.lat, n.lng], {icon: nationMarkerIcon(n), title: n.name}).addTo(map);
@@ -1001,15 +1082,16 @@ function init(){
   }else{
     launchBtn.disabled = true;
     $("#launch-status").textContent = "Map unavailable — launch sim offline";
+    $("#map-loader").textContent = "Map library unavailable — offline";
   }
 
-  const {totalWarheads, threats} = totals();
+  const {totalWarheads, threats, movements} = totals();
   highlightNation("usa");
 
   requestAnimationFrame(() => {
     setTimeout(() => animateCounter($("#kpi-warheads"), totalWarheads), 300);
     setTimeout(() => animateCounter($("#kpi-threats"), threats), 600);
-    setTimeout(() => animateCounter($("#kpi-movements"), 7), 900);
+    setTimeout(() => animateCounter($("#kpi-movements"), movements), 900);
   });
 }
 
