@@ -9,37 +9,43 @@ interactive world map.
 > (FAS/SIPRI-style); **every alert, launch window, DEFCON state, and "live feed" item is
 > invented** for the demo. Nothing here is real intelligence.
 
+- **Fully self-contained — no external CDNs.** Leaflet, the world basemap, fonts, and icons are
+  all vendored in [`vendor/`](vendor/), so the app runs deployed, from a local folder, over
+  `file://`, and **completely offline**.
+
 ## Features
 
-- **Interactive map** (Leaflet + CARTO dark tiles) of nine nuclear-armed states, sized by arsenal,
-  framed by a tactical HUD (corner brackets, vignette, radar sweep) and a satellite-uplink loader.
+- **Interactive map** of nine nuclear-armed states, sized by arsenal, framed by a tactical HUD
+  (corner brackets, vignette, radar sweep). The basemap is a **bundled world GeoJSON drawn as
+  vectors by Leaflet** — no tile server, so it renders with zero network access.
 - **Strategic platforms** — SSBN submarines, strategic bombers, and Ground-Based Interceptor
   (GBI) defense sites. Click any sidebar inventory row (or focus it and press Enter) to fly the
   map to that platform and open its readout.
+- **Interactive DEFCON scale** — click any of the five levels to set the global posture; the
+  header badge updates its number, status codeword, and color.
 - **Launch simulation** — animates a notional ICBM trajectory and probabilistically engages
   it with GBI midcourse defense, showing an intercept or impact outcome.
-- **Live panels** — rotating intel feed, DEFCON scale, arsenal comparison, geopolitical heat
-  index, and projected launch windows.
+- **Live panels** — rotating intel feed, arsenal comparison, geopolitical heat index, and
+  projected launch windows.
 - Data-driven from a single set of arrays (totals and the movements KPI are derived, never
   hand-typed), responsive layout, and reduced-motion support.
 
 ## Run locally
 
-It's one self-contained file with no build step. Either open it directly:
+No build step and no internet required. Open it directly:
 
 ```sh
 open index.html      # macOS  (use xdg-open on Linux)
 ```
 
-…or serve it (recommended, so the map tiles load over HTTP):
+…or serve it (recommended, so the browser resolves the `vendor/` paths cleanly):
 
 ```sh
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-An internet connection is required at runtime for the Leaflet, Lucide, Google Fonts, and
-map-tile CDNs.
+Everything it needs is in the repo, so it works the same online or offline.
 
 ## Deployment
 
@@ -51,7 +57,11 @@ Pushing to `main` publishes the site to GitHub Pages via
 ## Project structure
 
 ```
-index.html                      # entire app: markup, styles, and logic
+index.html                          # entire app: markup, styles, and logic
+vendor/
+  leaflet/                          # Leaflet 1.9.4 (js, css, marker images)
+  world/world.js                    # bundled world basemap (GeoJSON as a global)
+  fonts/                            # self-hosted Orbitron, Share Tech Mono, Inter (woff2)
 .github/workflows/deploy-pages.yml  # GitHub Pages deploy
-.nojekyll                       # serve static files without Jekyll processing
+.nojekyll                           # serve static files without Jekyll processing
 ```
