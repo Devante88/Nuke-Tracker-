@@ -58,8 +58,14 @@ Everything it needs is in the repo, so it works the same online or offline.
 
 ## Deployment
 
-Pushing to `main` publishes the site to GitHub Pages via
-[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
+The workflow [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml)
+publishes the site to the **`gh-pages`** branch on every push to `main` (a plain token push —
+no `github-pages` environment, so it isn't blocked by branch-protection rules).
+
+**One-time setup** — GitHub only lets a repo admin turn Pages on, so this single step can't be
+automated: in **Settings → Pages → Build and deployment**, set **Source → Deploy from a branch**,
+choose **Branch → `gh-pages`** and **folder `/ (root)`**, then **Save**. After that, every push
+to `main` auto-updates the live site.
 
 **Live:** https://devante88.github.io/Nuke-Tracker-/
 
@@ -71,6 +77,6 @@ vendor/
   leaflet/                          # Leaflet 1.9.4 (js, css, marker images)
   world/world.js                    # bundled world basemap (GeoJSON as a global)
   fonts/                            # self-hosted Orbitron, Share Tech Mono, Inter (woff2)
-.github/workflows/deploy-pages.yml  # GitHub Pages deploy
+.github/workflows/deploy-pages.yml  # publishes the site to the gh-pages branch
 .nojekyll                           # serve static files without Jekyll processing
 ```
