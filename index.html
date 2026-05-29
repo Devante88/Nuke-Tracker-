@@ -333,7 +333,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
     <div class="briefing-warn">
       <span>⚠</span>
-      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), and the seismic feed (USGS earthquakes). Simulated: alerts, DEFCON, mobile-force movements, launch sim, ETA, and heat index — those have no public real-time source.</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), and active federal hazard alerts (NWS — same feed FEMA reads). Simulated: DEFCON, mobile-force movements, and the launch-intercept animation — those are classified by design and have no public real-time source; this dashboard does not pretend otherwise.</span>
     </div>
     <ul class="briefing-list">
       <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
@@ -538,7 +538,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <!-- RIGHT PANEL -->
 <aside class="right-panel">
   <div class="rp-section">
-    <div class="rp-title">⚡ Active Alerts</div>
+    <div class="rp-title">⚡ Active Alerts · NWS</div>
     <div id="alert-list"></div>
   </div>
 
@@ -814,9 +814,10 @@ function renderInventory(selector, rows, cols){
 }
 
 /* ──────────────── RIGHT PANEL ──────────────── */
-function renderAlerts(){
+function renderAlerts(items){
   const list = $("#alert-list");
-  ALERTS.forEach((a) => {
+  list.replaceChildren();
+  (items || ALERTS).forEach((a) => {
     const item = el("div", "alert-item");
     item.innerHTML = `
       <div class="alert-severity sev-${a.sev}"></div>
@@ -826,6 +827,49 @@ function renderAlerts(){
       </div>`;
     list.appendChild(item);
   });
+}
+
+// Real active hazard alerts from the National Weather Service (public,
+// CORS-enabled, no key). Same federal feed used by FEMA. Replaces the
+// (invented) nuclear-posture items while preserving the panel's visual
+// language (severity bar + title + meta). Falls back to the simulated
+// ALERTS when offline / blocked.
+const NWS_SEV = {
+  Extreme:  "critical",
+  Severe:   "high",
+  Moderate: "medium",
+  Minor:    "low",
+  Unknown:  "low"
+};
+async function loadNwsAlerts(){
+  const URL_NWS = "https://api.weather.gov/alerts/active?status=actual&message_type=alert,update";
+  try{
+    const r = await fetch(URL_NWS, {cache: "no-store", headers: {"Accept": "application/geo+json"}});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const features = (data.features || []);
+    if(!features.length) return;
+    // Severity-rank then time-newest first, cap to the 6 most pressing.
+    const rank = {Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4};
+    features.sort((a, b) => {
+      const ra = rank[a.properties.severity] ?? 5, rb = rank[b.properties.severity] ?? 5;
+      if(ra !== rb) return ra - rb;
+      return new Date(b.properties.sent) - new Date(a.properties.sent);
+    });
+    const items = features.slice(0, 6).map((f) => {
+      const p = f.properties;
+      const area = (p.areaDesc || "").split(";")[0].trim() || "—";
+      const when = p.sent ? relTime(new Date(p.sent)) : "";
+      return {
+        title: p.event || "Alert",
+        meta: `${when} · ${area} · ${(p.severity || "UNKNOWN").toUpperCase()} · NWS`,
+        sev: NWS_SEV[p.severity] || "low"
+      };
+    });
+    renderAlerts(items);
+  }catch(e){
+    console.warn("NWS alerts unavailable; keeping simulated alerts:", e.message);
+  }
 }
 
 function renderDefcon(){
@@ -1630,6 +1674,11 @@ function init(){
     const cdEl = $("#next-launch-cd");
     if(cdEl && nextLaunchNet != null) cdEl.textContent = fmtCountdown(nextLaunchNet - Date.now());
   }, 1000);
+
+  // Real federal hazard alerts from the National Weather Service (same feed
+  // FEMA reads). The simulated ALERTS rendered above remain as the fallback.
+  loadNwsAlerts();
+  setInterval(loadNwsAlerts, 3 * 60 * 1000);
 
   if(window.L) initMap();
 
