@@ -528,7 +528,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="bottom-panel">
       <div class="panel-title">
         <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Projected Launch Windows &amp; Test Schedule (simulated)
+        Upcoming Launches · Live (The Space Devs)
       </div>
       <div class="launch-timeline" id="launch-timeline"></div>
     </div>
@@ -559,10 +559,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="rp-section">
-    <div class="rp-title">🌡 Geopolitical Heat Index</div>
-    <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Regional tension scoring (simulated)</div>
+    <div class="rp-title">📡 Live Activity Monitor</div>
+    <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Real-time counts · USGS · The Space Devs · CelesTrak</div>
     <div id="heat-list"></div>
-    <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-faint);margin-top:var(--space-3);">Scale: 0=Peaceful 10=Imminent Conflict</div>
+    <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-faint);margin-top:var(--space-3);">Quakes M4.5+ /24h · strongest mag · upcoming launches · live satellites tracked</div>
   </div>
 </aside>
 </div>
@@ -704,14 +704,6 @@ const LAUNCH_WINDOWS = [
   {tone:"info",   window:"3–7 DAYS",            event:"🇺🇸 US Minuteman III — Operational Test",       detail:"Vandenberg SFB Launch Facility 10. Unarmed ICBM OT&E as per routine schedule."},
   {tone:"info",   window:"14–30 DAYS",          event:"🇮🇳 India Agni-V — DRDO Final Test Series",     detail:"APJ Abdul Kalam Island range. Series III MIRV qualification test. No hostile intent."},
   {tone:"ok",     window:"60–90 DAYS",          event:"🇫🇷 France M51.3 — Confirmation Test",          detail:"Landes test center. Submarine-launched ballistic missile upgrade validation."}
-];
-
-const HEAT_INDEX = [
-  {region:"Korea",       score:9.2, pct:92, grad:"linear-gradient(90deg,#ff3333,#ff6600)", blink:true},
-  {region:"Ukraine",     score:7.8, pct:78, grad:"linear-gradient(90deg,#ff6600,#ffaa00)"},
-  {region:"Taiwan",      score:6.2, pct:62, grad:"linear-gradient(90deg,#ffaa00,#ffcc44)"},
-  {region:"Middle East", score:5.8, pct:58, grad:"linear-gradient(90deg,#ffaa00,#ffcc44)"},
-  {region:"S. Asia",     score:4.5, pct:45, grad:"linear-gradient(90deg,#ffcc44,#aaaaaa)"}
 ];
 
 const INITIAL_FEED = [
@@ -918,22 +910,39 @@ function renderDevelopment(){
   });
 }
 
-function renderHeatIndex(){
+/* ──────────────── LIVE ACTIVITY MONITOR ────────────────
+   Real counts aggregated from the live feeds (USGS seismic, The Space Devs
+   launches, CelesTrak satellites). Each source updates its field and re-renders;
+   missing sources show "—" rather than a fabricated value. */
+const activity = {quakes: null, strongestMag: null, launches: null, satellites: null};
+
+function renderActivity(){
   const list = $("#heat-list");
-  HEAT_INDEX.forEach((h, i) => {
+  if(!list) return;
+  const rows = [
+    {name: "Quakes 24h", val: activity.quakes,       max: 60, fmt: (v) => String(v)},
+    {name: "Top mag",    val: activity.strongestMag, max: 9,  fmt: (v) => v.toFixed(1)},
+    {name: "Launches",   val: activity.launches,     max: 10, fmt: (v) => String(v)},
+    {name: "Live sats",  val: activity.satellites,   max: 24, fmt: (v) => String(v)}
+  ];
+  list.replaceChildren();
+  rows.forEach((r, i) => {
+    const has = r.val != null;
+    const pct = has ? Math.max(3, Math.min(100, (r.val / r.max) * 100)) : 0;
     const row = el("div", "wh-row");
-    if(i < HEAT_INDEX.length - 1) row.style.marginBottom = "var(--space-3)";
-    const blink = h.blink ? "animation:blink 2s infinite;" : "";
+    if(i < rows.length - 1) row.style.marginBottom = "var(--space-3)";
     row.innerHTML = `
-      <span class="wh-name" style="width:80px;">${esc(h.region)}</span>
-      <div class="wh-bar-wrap" style="height:10px;"><div class="wh-bar" style="width:${h.pct}%;background:${h.grad};${blink}"></div></div>
-      <span class="wh-count">${h.score.toFixed(1)}</span>`;
+      <span class="wh-name" style="width:80px;">${esc(r.name)}</span>
+      <div class="wh-bar-wrap" style="height:10px;"><div class="wh-bar" style="width:${pct}%;background:linear-gradient(90deg,#00aaff,#00ff88);"></div></div>
+      <span class="wh-count">${has ? esc(r.fmt(r.val)) : "—"}</span>`;
     list.appendChild(row);
   });
 }
 
+// Synthetic launch schedule — immediate paint + offline fallback.
 function renderLaunchWindows(){
   const timeline = $("#launch-timeline");
+  timeline.replaceChildren();
   LAUNCH_WINDOWS.forEach((l) => {
     const item = el("div", `lt-item lt-${l.tone}`);
     item.innerHTML = `
@@ -942,6 +951,57 @@ function renderLaunchWindows(){
       <div class="lt-detail">${esc(l.detail)}</div>`;
     timeline.appendChild(item);
   });
+}
+
+function fmtCountdown(ms){
+  if(ms <= 0) return "T-00:00:00";
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const pad = (n) => String(n).padStart(2, "0");
+  const hms = `${pad(Math.floor(s % 86400 / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+  return d > 0 ? `T-${d}d ${hms}` : `T-${hms}`;
+}
+
+// Real upcoming rocket launches from The Space Devs Launch Library 2 (public,
+// CORS-enabled, no key). Replaces the synthetic schedule and drives a live
+// per-second T- countdown to the next launch.
+let nextLaunchNet = null;
+async function loadLaunchWindows(){
+  const URL_LL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=6&hide_recent_previous=true";
+  try{
+    const r = await fetch(URL_LL, {cache: "no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const results = (data.results || []).filter((x) => x.net);
+    if(!results.length) return;
+    const timeline = $("#launch-timeline");
+    timeline.replaceChildren();
+
+    const cd = el("div", "lt-item lt-danger");
+    cd.innerHTML = `<div class="lt-window">NEXT LAUNCH</div><div class="lt-event" id="next-launch-cd">T-—</div><div class="lt-detail" id="next-launch-name"></div>`;
+    timeline.appendChild(cd);
+    nextLaunchNet = new Date(results[0].net).getTime();
+    $("#next-launch-name").textContent = results[0].name || "";
+
+    results.forEach((x) => {
+      const net = new Date(x.net);
+      const hrs = (net.getTime() - Date.now()) / 3600000;
+      const tone = hrs < 24 ? "warn" : hrs < 24 * 7 ? "info" : "ok";
+      const prov = (x.launch_service_provider && x.launch_service_provider.name) || "";
+      const loc = (x.pad && x.pad.location && x.pad.location.name) || "";
+      const item = el("div", `lt-item lt-${tone}`);
+      item.innerHTML = `
+        <div class="lt-window">${esc(net.toUTCString().slice(5, 22))} UTC</div>
+        <div class="lt-event">🚀 ${esc(x.name || "Launch")}</div>
+        <div class="lt-detail">${esc([prov, loc].filter(Boolean).join(" · "))}</div>`;
+      timeline.appendChild(item);
+    });
+
+    activity.launches = results.length;
+    renderActivity();
+  }catch(e){
+    console.warn("Launch Library unavailable; keeping simulated launch windows:", e.message);
+  }
 }
 
 /* ──────────────── INTEL FEED ──────────────── */
@@ -980,8 +1040,15 @@ async function loadSeismicFeed(){
     const r = await fetch(URL_FEED, {cache: "no-store"});
     if(!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
-    const events = (data.features || []).slice(0, 8);
+    const all = data.features || [];
+    const events = all.slice(0, 8);
     if(!events.length) return;
+
+    // Feed real counts into the Live Activity Monitor.
+    activity.quakes = all.length;
+    activity.strongestMag = all.reduce((mx, f) => Math.max(mx, (f.properties && f.properties.mag) || 0), 0);
+    renderActivity();
+
     const feed = $("#intel-feed");
     feed.replaceChildren();
     events.forEach((f) => {
@@ -1286,6 +1353,8 @@ async function initSatellites(){
   setSatellites(true);
   renderSatSidebar();
   animateCounter($("#kpi-satellites"), satItems.length);
+  activity.satellites = satItems.length;
+  renderActivity();
 }
 
 /* ── Mobile forces: ground / air / water assets patrolling waypoint routes ── */
@@ -1542,7 +1611,7 @@ function init(){
   setActiveDefcon(activeDefcon);
   renderArsenalChart();
   renderDevelopment();
-  renderHeatIndex();
+  renderActivity();
   renderLaunchWindows();
   renderFeed();
 
@@ -1553,6 +1622,14 @@ function init(){
   // simulated INITIAL_FEED already rendered above is the offline fallback.
   loadSeismicFeed();
   setInterval(loadSeismicFeed, 5 * 60 * 1000);
+
+  // Real upcoming launches from The Space Devs + a live per-second T- countdown.
+  loadLaunchWindows();
+  setInterval(loadLaunchWindows, 10 * 60 * 1000);
+  setInterval(() => {
+    const cdEl = $("#next-launch-cd");
+    if(cdEl && nextLaunchNet != null) cdEl.textContent = fmtCountdown(nextLaunchNet - Date.now());
+  }, 1000);
 
   if(window.L) initMap();
 
