@@ -299,9 +299,51 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   .sidebar{display:none;}
   .bottom-panels{grid-template-columns:1fr;}
 }
+
+/* ─── FIRST-LOAD BRIEFING OVERLAY ─── */
+.briefing{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:var(--space-4);background:rgba(4,7,9,0.82);backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity var(--transition);}
+.briefing.show{opacity:1;visibility:visible;}
+.briefing-card{position:relative;width:min(560px,100%);max-height:88dvh;overflow-y:auto;background:var(--surface);border:1px solid var(--accent-dim);border-radius:var(--radius-lg);box-shadow:0 0 40px rgba(0,255,136,0.12),var(--shadow);padding:var(--space-6);transform:translateY(8px);transition:transform var(--transition);}
+.briefing.show .briefing-card{transform:translateY(0);}
+.briefing-eyebrow{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-2);}
+.briefing-title{font-family:var(--font-display);font-size:var(--text-xl);font-weight:100;letter-spacing:-0.01em;color:var(--accent);text-shadow:0 0 14px var(--accent-glow);margin-bottom:var(--space-3);}
+.briefing-warn{display:flex;gap:var(--space-2);align-items:flex-start;font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.5;color:var(--danger);background:var(--danger-glow);border:1px solid var(--border-danger);border-radius:var(--radius-sm);padding:var(--space-3);margin-bottom:var(--space-4);}
+.briefing-list{list-style:none;display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-5);}
+.briefing-list li{display:flex;gap:var(--space-3);font-size:var(--text-sm);line-height:1.45;color:var(--text);}
+.briefing-list .bk{flex-shrink:0;width:18px;text-align:center;}
+.briefing-list .bl{color:var(--text-muted);font-family:var(--font-mono);font-size:var(--text-xs);}
+.briefing-enter{width:100%;font-family:var(--font-display);font-size:var(--text-sm);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#012;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:var(--radius-md);padding:var(--space-3);box-shadow:0 0 18px var(--accent-glow);transition:box-shadow var(--transition);}
+.briefing-enter:hover{box-shadow:0 0 26px rgba(0,255,136,0.45);}
+.briefing-enter:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.briefing-close{position:absolute;top:var(--space-3);right:var(--space-4);font-family:var(--font-mono);font-size:var(--text-lg);color:var(--text-muted);line-height:1;}
+.briefing-close:hover{color:var(--text);}
+.briefing-btn{display:flex;align-items:center;gap:var(--space-1);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;transition:all var(--transition);}
+.briefing-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+.briefing-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 </style>
 </head>
 <body>
+
+<!-- FIRST-LOAD BRIEFING -->
+<div class="briefing" id="briefing" role="dialog" aria-modal="true" aria-labelledby="briefing-title" hidden>
+  <div class="briefing-card">
+    <button class="briefing-close" id="briefing-close" type="button" aria-label="Close briefing">✕</button>
+    <div class="briefing-eyebrow">Mission Briefing</div>
+    <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
+    <div class="briefing-warn">
+      <span>⚠</span>
+      <span><strong>Simulation only — not real intelligence.</strong> Warhead figures are rounded public estimates (FAS/SIPRI-style); every alert, movement, DEFCON state, launch and ETA is invented for this concept demo.</span>
+    </div>
+    <ul class="briefing-list">
+      <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
+      <li><span class="bk">🛰</span><span>Satellite &amp; triad-movement tracking (ground · air · water). <span class="bl">Toggle from the map controls.</span></span></li>
+      <li><span class="bk">☢</span><span>Interactive DEFCON scale + arsenal-development trends. <span class="bl">Click a DEFCON level to set posture.</span></span></li>
+      <li><span class="bk">⚠</span><span>Launch simulation with live impact-ETA &amp; GBI intercept. <span class="bl">Hit “Simulate Launch”.</span></span></li>
+    </ul>
+    <button class="briefing-enter" id="briefing-enter" type="button">Enter Dashboard ▸</button>
+  </div>
+</div>
+
 <div class="app">
 
 <!-- HEADER -->
@@ -333,6 +375,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div>
   <div class="header-right">
+    <button class="briefing-btn" id="briefing-open" type="button" title="Show mission briefing">ⓘ Briefing</button>
     <div class="live-indicator">
       <span class="live-dot"></span>
       <span>SIM FEED</span>
@@ -1036,8 +1079,8 @@ function addPlatformLayers(){
 // Fly the map to a platform marker and highlight its inventory row.
 function focusPlatform(key){
   // Satellites and mobile assets live on toggleable layers — switch on first.
-  if(key.startsWith("sat-") && !satState.active) setSatellites(true);
-  if(key.startsWith("mv-") && !moveState.active) setMovement(true);
+  if(key.startsWith("sat-") && !satLayer.active) setSatellites(true);
+  if(key.startsWith("mv-") && !moveLayer.active) setMovement(true);
   const marker = platformMarkers[key];
   if(!marker || !map) return;
   map.flyTo(marker.getLatLng(), 4, {duration: 0.8});
@@ -1047,13 +1090,51 @@ function focusPlatform(key){
   document.querySelector(`.tracker-table tbody tr[data-focus="${key}"]`)?.classList.add("row-active");
 }
 
-/* ──────────────── SATELLITE TRACKING ──────────────── */
-const SAT_TARGETS = {gbi: GBI_SITES, sub: SUBMARINES, base: GROUND_BASES};
-let satGroup = null;
-const satState = {active: false, rafId: null, startTs: 0, lastUpdate: 0, markers: [], beams: []};
+/* ──────────────── ANIMATED TRACKING LAYERS ────────────────
+   Satellites and mobile forces share one lifecycle: a Leaflet layer group,
+   a ~30fps animation loop, reduced-motion handling, and a toggle button.
+   Each layer only supplies how it's built and how it advances per frame. */
+function makeAnimatedLayer({btnSelector, label, build, update}){
+  const layer = {active: false, group: null, _raf: null, _start: 0, _last: 0};
+  layer.build = () => {
+    if(!layer.group){ layer.group = L.layerGroup(); build(layer.group); }
+    return layer.group;
+  };
+  function loop(now){
+    if(!layer.active) return;
+    if(now - layer._last > 33){ update((now - layer._start) / 1000); layer._last = now; }
+    layer._raf = requestAnimationFrame(loop);
+  }
+  layer.set = (on) => {
+    if(!map) return;
+    layer.build();
+    layer.active = on;
+    const btn = btnSelector && $(btnSelector);
+    if(btn){
+      btn.setAttribute("aria-pressed", String(on));
+      btn.textContent = label(on);
+      btn.classList.toggle("off", !on);
+    }
+    if(on){
+      layer.group.addTo(map);
+      const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+      if(reduced){ update(0); }              // static snapshot, no animation
+      else{ layer._start = performance.now(); layer._last = 0; layer._raf = requestAnimationFrame(loop); }
+    }else{
+      if(layer._raf) cancelAnimationFrame(layer._raf);
+      layer._raf = null;
+      map.removeLayer(layer.group);
+    }
+  };
+  return layer;
+}
 
-// Sinusoidal ground track: longitude advances with time and wraps; latitude
-// follows a sine of the offset from the ascending node, scaled by inclination.
+/* ── Satellites: sinusoidal ground tracks that beam down to tracked assets ── */
+const SAT_TARGETS = {gbi: GBI_SITES, sub: SUBMARINES, base: GROUND_BASES};
+const satData = {markers: [], beams: []};
+
+// Longitude advances with time and wraps; latitude is a sine of the offset
+// from the ascending node, scaled by inclination.
 function satPosition(sat, tSec){
   let lng = sat.node + sat.dir * (tSec / sat.period) * 360;
   lng = ((lng + 180) % 360 + 360) % 360 - 180;
@@ -1061,159 +1142,94 @@ function satPosition(sat, tSec){
   return [lat, lng];
 }
 
-function buildSatelliteLayer(){
-  satGroup = L.layerGroup();
-  SATELLITES.forEach((sat) => {
-    const track = [];
-    for(let lng = -180; lng <= 180; lng += 4){
-      track.push([Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180))), lng]);
-    }
-    L.polyline(track, {color: sat.glyphColor, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(satGroup);
+const satLayer = makeAnimatedLayer({
+  btnSelector: "#sat-btn",
+  label: (on) => `🛰 Satellite Tracking: ${on ? "ON" : "OFF"}`,
+  build(group){
+    SATELLITES.forEach((sat) => {
+      const track = [];
+      for(let lng = -180; lng <= 180; lng += 4){
+        track.push([Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180))), lng]);
+      }
+      L.polyline(track, {color: sat.glyphColor, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(group);
 
-    (SAT_TARGETS[sat.tracks] || []).forEach((target) => {
-      const line = L.polyline([[0, 0], [0, 0]], {color: sat.glyphColor, weight: 1, opacity: 0, dashArray: "2,6", interactive: false}).addTo(satGroup);
-      satState.beams.push({sat, target, line});
+      (SAT_TARGETS[sat.tracks] || []).forEach((target) => {
+        const line = L.polyline([[0, 0], [0, 0]], {color: sat.glyphColor, weight: 1, opacity: 0, dashArray: "2,6", interactive: false}).addTo(group);
+        satData.beams.push({sat, target, line});
+      });
+
+      const marker = L.marker(satPosition(sat, 0), {icon: platformIcon("✦", sat.glyphColor, 18), title: sat.name})
+        .bindPopup(platformPopupHtml(`✦ ${sat.name}`, sat.glyphColor,
+          [sat.type, `Tracking: ${sat.tracksLabel}`, "Status: ACTIVE"]), {className: "custom-popup"});
+      group.addLayer(marker);
+      platformMarkers[sat.key] = marker;
+      satData.markers.push({sat, marker});
     });
-
-    const marker = L.marker(satPosition(sat, 0), {icon: platformIcon("✦", sat.glyphColor, 18), title: sat.name})
-      .bindPopup(platformPopupHtml(`✦ ${sat.name}`, sat.glyphColor,
-        [sat.type, `Tracking: ${sat.tracksLabel}`, "Status: ACTIVE"]), {className: "custom-popup"});
-    satGroup.addLayer(marker);
-    platformMarkers[sat.key] = marker;
-    satState.markers.push({sat, marker});
-  });
-}
-
-function updateSatellites(tSec){
-  const pos = {};
-  satState.markers.forEach(({sat, marker}) => { const p = satPosition(sat, tSec); pos[sat.key] = p; marker.setLatLng(p); });
-  satState.beams.forEach(({sat, target, line}) => {
-    const sp = pos[sat.key];
-    line.setLatLngs([sp, [target.lat, target.lng]]);
-    const dist = map.distance(sp, [target.lat, target.lng]);  // metres
-    line.setStyle({opacity: Math.max(0.05, 0.5 * (1 - dist / 20000000))});
-  });
-}
-
-function satLoop(now){
-  if(!satState.active) return;
-  if(now - satState.lastUpdate > 33){            // ~30fps is plenty for slow orbits
-    updateSatellites((now - satState.startTs) / 1000);
-    satState.lastUpdate = now;
+  },
+  update(tSec){
+    const pos = {};
+    satData.markers.forEach(({sat, marker}) => { const p = satPosition(sat, tSec); pos[sat.key] = p; marker.setLatLng(p); });
+    satData.beams.forEach(({sat, target, line}) => {
+      const sp = pos[sat.key];
+      line.setLatLngs([sp, [target.lat, target.lng]]);
+      const dist = map.distance(sp, [target.lat, target.lng]);  // metres
+      line.setStyle({opacity: Math.max(0.05, 0.5 * (1 - dist / 20000000))});
+    });
   }
-  satState.rafId = requestAnimationFrame(satLoop);
-}
+});
 
-function setSatellites(on){
-  if(!satGroup) return;
-  satState.active = on;
-  const btn = $("#sat-btn");
-  if(btn){
-    btn.setAttribute("aria-pressed", String(on));
-    btn.textContent = `🛰 Satellite Tracking: ${on ? "ON" : "OFF"}`;
-    btn.classList.toggle("off", !on);
-  }
-  if(on){
-    satGroup.addTo(map);
-    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
-    if(reduced){
-      updateSatellites(0);                        // static snapshot, no animation
-    }else{
-      satState.startTs = performance.now();
-      satState.lastUpdate = 0;
-      satState.rafId = requestAnimationFrame(satLoop);
-    }
-  }else{
-    if(satState.rafId) cancelAnimationFrame(satState.rafId);
-    satState.rafId = null;
-    map.removeLayer(satGroup);
-  }
-}
-
-/* ──────────────── MOVEMENT TRACKING (ground / air / water) ──────────────── */
-let moveGroup = null;
-const moveState = {active: false, rafId: null, startTs: 0, lastUpdate: 0, assets: []};
+/* ── Mobile forces: ground / air / water assets patrolling waypoint routes ── */
+const moveData = {assets: []};
 
 // Position along a multi-leg route as a ping-pong patrol: phase 0→1 runs the
 // route forward, 1→2 runs it back, so the asset never teleports on loop.
 function routePosition(asset, tSec){
   const r = asset.route;
-  let phase = (tSec / asset.period) % 2;
-  let frac = phase > 1 ? 2 - phase : phase;
-  const dist = frac * asset._total;
-  let d = dist, i = 0;
+  const phase = (tSec / asset.period) % 2;
+  const frac = phase > 1 ? 2 - phase : phase;
+  let d = frac * asset._total, i = 0;
   while(i < asset._segs.length && d > asset._segs[i]){ d -= asset._segs[i]; i++; }
   if(i >= asset._segs.length) return r[r.length - 1].slice();
   const s = asset._segs[i] ? d / asset._segs[i] : 0;
   return [r[i][0] + (r[i + 1][0] - r[i][0]) * s, r[i][1] + (r[i + 1][1] - r[i][1]) * s];
 }
 
-function buildMovementLayer(){
-  moveGroup = L.layerGroup();
-  MOBILE_ASSETS.forEach((a) => {
-    const dom = DOMAINS[a.domain];
-    a._segs = [];
-    a._total = 0;
-    for(let i = 0; i < a.route.length - 1; i++){
-      const seg = Math.hypot(a.route[i + 1][0] - a.route[i][0], a.route[i + 1][1] - a.route[i][1]);
-      a._segs.push(seg); a._total += seg;
-    }
-    // faint full route the asset patrols
-    L.polyline(a.route, {color: dom.color, weight: 0.6, opacity: 0.2, dashArray: "2,6", interactive: false}).addTo(moveGroup);
-    const trail = L.polyline([], {color: dom.color, weight: 2, opacity: 0.7, interactive: false}).addTo(moveGroup);
-    const marker = L.marker(routePosition(a, 0), {icon: platformIcon(dom.glyph, dom.color, 20), title: a.name})
-      .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, dom.color,
-        [`Domain: ${dom.label}`, `Status: ${a.label}`, "Live movement tracking"]), {className: "custom-popup"});
-    moveGroup.addLayer(marker);
-    platformMarkers[a.key] = marker;
-    moveState.assets.push({asset: a, marker, trail, recent: []});
-  });
-}
-
-function updateMovement(tSec){
-  moveState.assets.forEach((m) => {
-    const p = routePosition(m.asset, tSec);
-    m.marker.setLatLng(p);
-    m.recent.push(p);
-    if(m.recent.length > 10) m.recent.shift();
-    m.trail.setLatLngs(m.recent);
-  });
-}
-
-function moveLoop(now){
-  if(!moveState.active) return;
-  if(now - moveState.lastUpdate > 33){
-    updateMovement((now - moveState.startTs) / 1000);
-    moveState.lastUpdate = now;
+const moveLayer = makeAnimatedLayer({
+  btnSelector: "#move-btn",
+  label: (on) => `➤ Movement Tracking: ${on ? "ON" : "OFF"}`,
+  build(group){
+    MOBILE_ASSETS.forEach((a) => {
+      const dom = DOMAINS[a.domain];
+      a._segs = [];
+      a._total = 0;
+      for(let i = 0; i < a.route.length - 1; i++){
+        const seg = Math.hypot(a.route[i + 1][0] - a.route[i][0], a.route[i + 1][1] - a.route[i][1]);
+        a._segs.push(seg); a._total += seg;
+      }
+      L.polyline(a.route, {color: dom.color, weight: 0.6, opacity: 0.2, dashArray: "2,6", interactive: false}).addTo(group);
+      const trail = L.polyline([], {color: dom.color, weight: 2, opacity: 0.7, interactive: false}).addTo(group);
+      const marker = L.marker(routePosition(a, 0), {icon: platformIcon(dom.glyph, dom.color, 20), title: a.name})
+        .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, dom.color,
+          [`Domain: ${dom.label}`, `Status: ${a.label}`, "Live movement tracking"]), {className: "custom-popup"});
+      group.addLayer(marker);
+      platformMarkers[a.key] = marker;
+      moveData.assets.push({asset: a, marker, trail, recent: []});
+    });
+  },
+  update(tSec){
+    moveData.assets.forEach((m) => {
+      const p = routePosition(m.asset, tSec);
+      m.marker.setLatLng(p);
+      m.recent.push(p);
+      if(m.recent.length > 10) m.recent.shift();
+      m.trail.setLatLngs(m.recent);
+    });
   }
-  moveState.rafId = requestAnimationFrame(moveLoop);
-}
+});
 
-function setMovement(on){
-  if(!moveGroup) return;
-  moveState.active = on;
-  const btn = $("#move-btn");
-  if(btn){
-    btn.setAttribute("aria-pressed", String(on));
-    btn.textContent = `➤ Movement Tracking: ${on ? "ON" : "OFF"}`;
-    btn.classList.toggle("off", !on);
-  }
-  if(on){
-    moveGroup.addTo(map);
-    const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
-    if(reduced){
-      updateMovement(0);
-    }else{
-      moveState.startTs = performance.now();
-      moveState.lastUpdate = 0;
-      moveState.rafId = requestAnimationFrame(moveLoop);
-    }
-  }else{
-    if(moveState.rafId) cancelAnimationFrame(moveState.rafId);
-    moveState.rafId = null;
-    map.removeLayer(moveGroup);
-  }
-}
+// Thin aliases keep the call sites readable.
+const setSatellites = (on) => satLayer.set(on);
+const setMovement = (on) => moveLayer.set(on);
 
 function buildMissileArc(from, to){
   const latlngs = [];
@@ -1272,9 +1288,7 @@ function initMap(){
   });
 
   addPlatformLayers();
-  buildSatelliteLayer();
   setSatellites(true);
-  buildMovementLayer();
   setMovement(true);
 
   // Leaflet can mis-measure its container inside a CSS grid/flex layout,
@@ -1433,8 +1447,8 @@ function init(){
   const moveBtn = $("#move-btn");
   if(window.L){
     launchBtn.addEventListener("click", simulateLaunch);
-    satBtn.addEventListener("click", () => setSatellites(!satState.active));
-    moveBtn.addEventListener("click", () => setMovement(!moveState.active));
+    satBtn.addEventListener("click", () => setSatellites(!satLayer.active));
+    moveBtn.addEventListener("click", () => setMovement(!moveLayer.active));
   }else{
     launchBtn.disabled = true;
     satBtn.disabled = true;
@@ -1452,6 +1466,28 @@ function init(){
     setTimeout(() => animateCounter($("#kpi-movements"), movements), 900);
     setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200);
   });
+
+  setupBriefing();
+}
+
+/* ──────────────── FIRST-LOAD BRIEFING ──────────────── */
+function setupBriefing(){
+  const overlay = $("#briefing");
+  if(!overlay) return;
+  const SEEN_KEY = "nagt-briefing-seen";
+  const seen = () => { try{ return localStorage.getItem(SEEN_KEY) === "1"; }catch(e){ return false; } };
+  const remember = () => { try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){ /* private mode */ } };
+
+  const open = () => { overlay.hidden = false; requestAnimationFrame(() => overlay.classList.add("show")); };
+  const close = () => { overlay.classList.remove("show"); remember(); setTimeout(() => { overlay.hidden = true; }, 220); };
+
+  $("#briefing-enter")?.addEventListener("click", close);
+  $("#briefing-close")?.addEventListener("click", close);
+  $("#briefing-open")?.addEventListener("click", open);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) close(); });
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && !overlay.hidden) close(); });
+
+  if(!seen()) open();   // first visit only; reopen anytime via the header button
 }
 
 // Scripts are deferred, so the DOM is parsed — but guard anyway.
