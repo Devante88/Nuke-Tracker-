@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css"/>
 <script src="vendor/leaflet/leaflet.js" defer></script>
 <script src="vendor/world/world.js" defer></script>
+<script src="vendor/satellite/satellite.min.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -332,7 +333,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
     <div class="briefing-warn">
       <span>⚠</span>
-      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock and the seismic feed (real earthquakes from USGS). Simulated: alerts, DEFCON, movements, launch sim, ETA, and heat index — those have no public real-time source.</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), and the seismic feed (USGS earthquakes). Simulated: alerts, DEFCON, mobile-force movements, launch sim, ETA, and heat index — those have no public real-time source.</span>
     </div>
     <ul class="briefing-list">
       <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
@@ -442,7 +443,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-title">Satellite Tracking</div>
+    <div class="sidebar-title">Satellite Tracking · Live</div>
     <table class="tracker-table">
       <thead>
         <tr><th>Satellite</th><th>Tracks</th><th>Status</th></tr>
@@ -500,8 +501,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="legend-item"><span class="legend-glyph" style="color:#b07bff;">▲</span><span class="legend-label">Strategic Bomber</span></div>
       <div class="legend-item"><span class="legend-glyph" style="color:#00ff88;">✛</span><span class="legend-label">GBI Defense Site</span></div>
       <div class="legend-item"><span class="legend-glyph" style="color:#ffae34;">◎</span><span class="legend-label">ICBM Ground Base</span></div>
-      <div class="legend-item"><span class="legend-glyph" style="color:#cfe8ff;">✦</span><span class="legend-label">Tracking Satellite</span></div>
-      <div class="legend-item"><span class="legend-dash" style="border-color:#00ffcc;"></span><span class="legend-label">Satellite Track Beam</span></div>
+      <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">✦</span><span class="legend-label">Live Satellite (GPS/GLONASS/BeiDou)</span></div>
       <div class="legend-item"><span class="legend-dash" style="border-top-style:solid;border-color:#ff8c1a;"></span><span class="legend-label">Nuke in Transit (trail)</span></div>
       <div class="legend-item"><div class="legend-dot" style="background:rgba(255,51,51,0.2);width:14px;height:14px;border-radius:0;"></div><span class="legend-label">Blast Radius (sim)</span></div>
     </div>
@@ -1159,11 +1159,18 @@ function makeAnimatedLayer({btnSelector, label, build, update}){
 }
 
 /* ── Satellites: sinusoidal ground tracks that beam down to tracked assets ── */
-const SAT_TARGETS = {gbi: GBI_SITES, sub: SUBMARINES, base: GROUND_BASES};
-const satData = {markers: [], beams: []};
+// Real navigation constellations of the three principal nuclear powers, pulled
+// live from CelesTrak as TLEs and propagated with SGP4 (satellite.js). If the
+// fetch or library is unavailable, we fall back to the synthetic SATELLITES.
+const REAL_SAT_GROUPS = [
+  {group: "gps-ops", cc: "USA", color: "#00aaff", cap: 6, label: "GPS · USA"},
+  {group: "glo-ops", cc: "RUS", color: "#ff8800", cap: 6, label: "GLONASS · RUS"},
+  {group: "beidou",  cc: "CHN", color: "#ff3333", cap: 6, label: "BeiDou · CHN"}
+];
+let satReal = false;        // true once live TLEs are loaded
+const satItems = [];        // unified render list: {key,name,color,glabel, satrec? | sat?}
 
-// Longitude advances with time and wraps; latitude is a sine of the offset
-// from the ascending node, scaled by inclination.
+// Synthetic fallback position (sinusoidal ground track) for offline use.
 function satPosition(sat, tSec){
   let lng = sat.node + sat.dir * (tSec / sat.period) * 360;
   lng = ((lng + 180) % 360 + 360) % 360 - 180;
@@ -1171,41 +1178,115 @@ function satPosition(sat, tSec){
   return [lat, lng];
 }
 
+function parseTLE(text){
+  const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim().length);
+  const out = [];
+  for(let i = 0; i + 2 < lines.length + 1 && i + 2 <= lines.length - 1; i += 3){
+    const name = lines[i].trim(), l1 = lines[i + 1], l2 = lines[i + 2];
+    if(l1[0] === "1" && l2[0] === "2") out.push({name, l1, l2});
+  }
+  return out;
+}
+
+async function fetchTLEGroup(g){
+  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${g.group}&FORMAT=tle`;
+  const r = await fetch(url, {cache: "no-store"});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return parseTLE(await r.text()).slice(0, g.cap)
+    .map((t) => ({...t, color: g.color, glabel: g.label}));
+}
+
+// Sub-satellite point (lat/lng) + altitude from a satrec at a given time.
+function realSatPosition(satrec, when){
+  const pv = satellite.propagate(satrec, when);
+  if(!pv || !pv.position) return null;
+  const gd = satellite.eciToGeodetic(pv.position, satellite.gstime(when));
+  return {lat: satellite.degreesLat(gd.latitude), lng: satellite.degreesLong(gd.longitude), altKm: gd.height};
+}
+
+function itemPosition(it, tSec){
+  if(satReal) return realSatPosition(it.satrec, new Date());
+  const [lat, lng] = satPosition(it.sat, tSec);
+  return {lat, lng};
+}
+
+function satPopupHtml(it){
+  if(satReal && it.satrec){
+    const p = realSatPosition(it.satrec, new Date());
+    return platformPopupHtml(`✦ ${it.name}`, it.color, [it.glabel,
+      p ? `Altitude: ${p.altKm.toFixed(0)} km` : "—",
+      p ? `Lat ${p.lat.toFixed(1)}°, Lng ${p.lng.toFixed(1)}°` : "",
+      "Source: CelesTrak TLE · live"].filter(Boolean));
+  }
+  return platformPopupHtml(`✦ ${it.name}`, it.color, [it.glabel || "Monitoring", "Status: SIMULATED"]);
+}
+
 const satLayer = makeAnimatedLayer({
   btnSelector: "#sat-btn",
   label: (on) => `🛰 Satellite Tracking: ${on ? "ON" : "OFF"}`,
   build(group){
-    SATELLITES.forEach((sat) => {
-      const track = [];
-      for(let lng = -180; lng <= 180; lng += 4){
-        track.push([Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180))), lng]);
+    satItems.forEach((it) => {
+      const p = itemPosition(it, 0);
+      if(!p) return;
+      if(!satReal){            // draw the synthetic ground track behind the dot
+        const track = [];
+        for(let lng = -180; lng <= 180; lng += 4){
+          track.push([Math.max(-80, Math.min(80, it.sat.incl * Math.sin((lng - it.sat.node) * Math.PI / 180))), lng]);
+        }
+        L.polyline(track, {color: it.color, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(group);
       }
-      L.polyline(track, {color: sat.glyphColor, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(group);
-
-      (SAT_TARGETS[sat.tracks] || []).forEach((target) => {
-        const line = L.polyline([[0, 0], [0, 0]], {color: sat.glyphColor, weight: 1, opacity: 0, dashArray: "2,6", interactive: false}).addTo(group);
-        satData.beams.push({sat, target, line});
-      });
-
-      const marker = L.marker(satPosition(sat, 0), {icon: platformIcon("✦", sat.glyphColor, 18), title: sat.name})
-        .bindPopup(platformPopupHtml(`✦ ${sat.name}`, sat.glyphColor,
-          [sat.type, `Tracking: ${sat.tracksLabel}`, "Status: ACTIVE"]), {className: "custom-popup"});
+      const marker = L.marker([p.lat, p.lng], {icon: platformIcon("✦", it.color, 16), title: it.name})
+        .bindPopup(satPopupHtml(it), {className: "custom-popup"});
+      marker.on("popupopen", () => marker.setPopupContent(satPopupHtml(it)));
       group.addLayer(marker);
-      platformMarkers[sat.key] = marker;
-      satData.markers.push({sat, marker});
+      platformMarkers[it.key] = marker;
+      it.marker = marker;
     });
   },
   update(tSec){
-    const pos = {};
-    satData.markers.forEach(({sat, marker}) => { const p = satPosition(sat, tSec); pos[sat.key] = p; marker.setLatLng(p); });
-    satData.beams.forEach(({sat, target, line}) => {
-      const sp = pos[sat.key];
-      line.setLatLngs([sp, [target.lat, target.lng]]);
-      const dist = map.distance(sp, [target.lat, target.lng]);  // metres
-      line.setStyle({opacity: Math.max(0.05, 0.5 * (1 - dist / 20000000))});
+    satItems.forEach((it) => {
+      const p = itemPosition(it, tSec);
+      if(p && it.marker) it.marker.setLatLng([p.lat, p.lng]);
     });
   }
 });
+
+// Sidebar list + KPI, sourced from whichever satellite set is active.
+function renderSatSidebar(){
+  const tbody = $("#sat-tbody");
+  if(!tbody) return;
+  tbody.replaceChildren();
+  const rows = satItems.map((it) => ({
+    key: it.key, name: it.name, status: "active",
+    label: satReal ? "LIVE" : "SIM", col2: it.glabel || ""
+  }));
+  renderInventory("#sat-tbody", rows, [(r) => `✦ ${esc(r.name)}`, (r) => r.col2]);
+}
+
+// Load real TLEs (with synthetic fallback), then build + show the layer.
+async function initSatellites(){
+  const loaded = [];
+  if(window.satellite){
+    try{
+      const groups = await Promise.all(REAL_SAT_GROUPS.map(fetchTLEGroup));
+      groups.flat().forEach((t, i) => {
+        try{ loaded.push({key: `sat-r${i}`, name: t.name, color: t.color, glabel: t.glabel, satrec: satellite.twoline2satrec(t.l1, t.l2)}); }
+        catch(e){ /* skip malformed TLE */ }
+      });
+    }catch(e){ console.warn("CelesTrak TLE unavailable; using synthetic satellites:", e.message); }
+  }
+  satItems.length = 0;
+  if(loaded.length){
+    satReal = true;
+    satItems.push(...loaded);
+  }else{
+    satReal = false;
+    SATELLITES.forEach((s) => satItems.push({key: s.key, name: s.name, color: s.glyphColor, glabel: s.tracksLabel, sat: s}));
+  }
+  setSatellites(true);
+  renderSatSidebar();
+  animateCounter($("#kpi-satellites"), satItems.length);
+}
 
 /* ── Mobile forces: ground / air / water assets patrolling waypoint routes ── */
 const moveData = {assets: []};
@@ -1317,7 +1398,7 @@ function initMap(){
   });
 
   addPlatformLayers();
-  setSatellites(true);
+  initSatellites();          // async: real TLEs (CelesTrak) → SGP4, synthetic fallback
   setMovement(true);
 
   // Leaflet can mis-measure its container inside a CSS grid/flex layout,
@@ -1455,8 +1536,8 @@ function init(){
   renderInventory("#air-tbody", AIRCRAFT, [(a) => `${a.flag} ${esc(a.name)}`, (a) => a.base]);
   renderInventory("#gbi-tbody", GBI_SITES, [(g) => `${g.flag} ${esc(g.name)}`, (g) => `${g.interceptors} GBI`]);
   renderInventory("#base-tbody", GROUND_BASES, [(b) => `${b.flag} ${esc(b.name)}`, (b) => b.region]);
-  renderInventory("#sat-tbody", SATELLITES, [(s) => `✦ ${esc(s.name)}`, (s) => s.tracksLabel]);
   renderInventory("#move-tbody", MOBILE_ASSETS, [(a) => `${a.flag} ${esc(a.name)}`, (a) => DOMAINS[a.domain].label]);
+  // #sat-tbody is populated by initSatellites() once real TLEs load (or fall back).
   renderAlerts();
   setActiveDefcon(activeDefcon);
   renderArsenalChart();
@@ -1488,6 +1569,9 @@ function init(){
     moveBtn.disabled = true;
     $("#launch-status").textContent = "Map unavailable — launch sim offline";
     $("#map-loader").textContent = "Map library unavailable — offline";
+    // No map → still list the (synthetic) satellites in the sidebar.
+    renderInventory("#sat-tbody", SATELLITES, [(s) => `✦ ${esc(s.name)}`, (s) => s.tracksLabel]);
+    requestAnimationFrame(() => setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200));
   }
 
   const {totalWarheads, threats, movements} = totals();
@@ -1497,7 +1581,6 @@ function init(){
     setTimeout(() => animateCounter($("#kpi-warheads"), totalWarheads), 300);
     setTimeout(() => animateCounter($("#kpi-threats"), threats), 600);
     setTimeout(() => animateCounter($("#kpi-movements"), movements), 900);
-    setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200);
   });
 
   setupBriefing();
