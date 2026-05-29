@@ -332,7 +332,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
     <div class="briefing-warn">
       <span>⚠</span>
-      <span><strong>Simulation only — not real intelligence.</strong> Warhead figures are rounded public estimates (FAS/SIPRI-style); every alert, movement, DEFCON state, launch and ETA is invented for this concept demo.</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock and the seismic feed (real earthquakes from USGS). Simulated: alerts, DEFCON, movements, launch sim, ETA, and heat index — those have no public real-time source.</span>
     </div>
     <ul class="briefing-list">
       <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
@@ -362,7 +362,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </svg>
     <div>
       <div class="header-title">NAGT // Nuclear Arms Global Tracker</div>
-      <div class="header-subtitle">FICTIONAL CONCEPT DASHBOARD — SIMULATION ONLY</div>
+      <div class="header-subtitle">TACTICAL DASHBOARD · LIVE SEISMIC + SIMULATED INTEL</div>
     </div>
   </div>
   <div class="header-center">
@@ -520,7 +520,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="bottom-panel">
       <div class="panel-title">
         <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        Intelligence Feed (simulated)
+        Real-time Seismic Activity · USGS
       </div>
       <div id="intel-feed" aria-live="polite" aria-label="Simulated intelligence feed"></div>
     </div>
@@ -720,14 +720,6 @@ const INITIAL_FEED = [
   {time:"01:30 UTC", title:"US STRATCOM Readiness Change",      badge:"movement", desc:"USSTRATCOM raises alert posture to DEFCON 3. All Minuteman III ICBMs now on 24/7 alert rotation."},
   {time:"00:45 UTC", title:"Chinese DF-41 Test Confirmed",      badge:"test",     desc:"PLA Rocket Force conducted successful inert reentry vehicle test over Gobi Desert range. No payload."},
   {time:"00:12 UTC", title:"UK Trident Patrol Departure",       badge:"nominal",  desc:"SSBN HMS Vanguard departed HMNB Clyde. Continuous at-sea deterrent posture maintained."}
-];
-
-const ROTATING_FEED = [
-  {time:"now",      title:"DPRK Launch Vehicle Fueling Detected",   badge:"alert",    desc:"Thermal signature consistent with propellant loading on Hwasong-18 at Tongchang-ri."},
-  {time:"3m ago",   title:"US B-52H STRATOTANKER Airborne",         badge:"movement", desc:"Aircraft departed Minot AFB. Flight pattern consistent with nuclear deterrence mission."},
-  {time:"8m ago",   title:"Russia Strategic Missile Forces Drill",  badge:"movement", desc:"RVSN conducting snap exercise. Multiple Topol-M regiments mobilized from garrison."},
-  {time:"15m ago",  title:"Seismic Activity Near DPRK Test Site",   badge:"alert",    desc:"Magnitude 2.4 event detected near Punggye-ri. Monitoring for nuclear origin."},
-  {time:"22m ago",  title:"Pakistan Shaheen-III Notice to Airmen",  badge:"test",     desc:"NOTAM filed for eastern range corridor. Possible ballistic missile test within 48 hrs."}
 ];
 
 const BLAST_ZONES = [
@@ -969,16 +961,46 @@ function renderFeed(){
   INITIAL_FEED.forEach((item) => feed.appendChild(feedItemNode(item)));
 }
 
-let feedIdx = 0;
-function rotateFeed(){
-  feedIdx = (feedIdx + 1) % ROTATING_FEED.length;
-  const feed = $("#intel-feed");
-  const node = feedItemNode(ROTATING_FEED[feedIdx]);
-  node.style.opacity = "0";
-  node.style.transition = "opacity 0.5s ease";
-  feed.prepend(node);
-  requestAnimationFrame(() => { node.style.opacity = "1"; });
-  while(feed.children.length > 7) feed.removeChild(feed.lastChild);
+// Relative time label for a Date — "3m ago" / "2h ago" / "5d ago".
+function relTime(date){
+  const sec = Math.max(0, (Date.now() - date.getTime()) / 1000);
+  if(sec < 60)    return `${Math.floor(sec)}s ago`;
+  if(sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
+  if(sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
+// Real-time seismic activity from USGS (public, CORS-enabled, no key). Each
+// significant earthquake is shown like an intel item. Nuclear tests register
+// seismically too, which makes this directly relevant to the dashboard's theme.
+// If the fetch fails (offline / blocked), the simulated INITIAL_FEED stays.
+async function loadSeismicFeed(){
+  const URL_FEED = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson";
+  try{
+    const r = await fetch(URL_FEED, {cache: "no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const events = (data.features || []).slice(0, 8);
+    if(!events.length) return;
+    const feed = $("#intel-feed");
+    feed.replaceChildren();
+    events.forEach((f) => {
+      const p = f.properties || {};
+      const ts = new Date(p.time);
+      const mag = (typeof p.mag === "number" ? p.mag : 0);
+      const place = p.place || "Unknown region";
+      const depth = (f.geometry && f.geometry.coordinates && f.geometry.coordinates[2]) || 0;
+      const badge = mag >= 6 ? "alert" : mag >= 5 ? "movement" : "test";
+      feed.appendChild(feedItemNode({
+        time: relTime(ts),
+        title: `M${mag.toFixed(1)} — ${place}`,
+        badge,
+        desc: `Depth ${depth.toFixed(0)} km · ${p.type || "earthquake"} · USGS · ${ts.toISOString().slice(11, 16)} UTC`
+      }));
+    });
+  }catch(e){
+    console.warn("USGS seismic feed unavailable; keeping simulated feed:", e.message);
+  }
 }
 
 /* ──────────────── KPI COUNTERS ──────────────── */
@@ -1445,7 +1467,11 @@ function init(){
 
   updateClock();
   setInterval(updateClock, 1000);
-  setInterval(rotateFeed, 12000);
+
+  // Real seismic feed from USGS. Initial fetch + every 5 min refresh. The
+  // simulated INITIAL_FEED already rendered above is the offline fallback.
+  loadSeismicFeed();
+  setInterval(loadSeismicFeed, 5 * 60 * 1000);
 
   if(window.L) initMap();
 
