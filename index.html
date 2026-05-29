@@ -380,7 +380,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <span class="live-dot"></span>
       <span>SIM FEED</span>
     </div>
-    <div class="clock" id="clock">--:--:-- UTC</div>
+    <div class="clock" id="clock">--:--:--</div>
   </div>
 </header>
 
@@ -756,12 +756,19 @@ function esc(str){
   ));
 }
 
-/* ──────────────── CLOCK ──────────────── */
+/* ──────────────── CLOCK ────────────────
+   Real local time, ticking every second, labelled with the viewer's own
+   timezone (e.g. EDT, GMT+1) so it matches their wall clock. */
 function updateClock(){
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
+  let tz = "LOCAL";
+  try{
+    tz = new Intl.DateTimeFormat(undefined, {timeZoneName: "short"})
+      .formatToParts(now).find((p) => p.type === "timeZoneName")?.value || "LOCAL";
+  }catch(e){ /* Intl unavailable — keep LOCAL */ }
   $("#clock").textContent =
-    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${tz}`;
 }
 
 /* ──────────────── SIDEBAR: NATIONS ──────────────── */
