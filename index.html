@@ -344,7 +344,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
     <div class="briefing-warn">
       <span>⚠</span>
-      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), active federal hazard alerts (NWS — same feed FEMA reads), and an on-demand satellite imagery basemap (Esri World Imagery — click any facility popup's "📷 Satellite view" to zoom in). Simulated: DEFCON, mobile-force movements, and the launch-intercept animation — those are classified by design and have no public real-time source; this dashboard does not pretend otherwise.</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), live air traffic (OpenSky ADS-B over CONUS), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), active federal hazard alerts (NWS), and an on-demand satellite imagery basemap (Esri — click any facility's "📷 Satellite view"). Still simulated — because there is no public real-time source: DEFCON, ground/sea force movement (road-mobile TELs and SSBNs are concealed by design), and the launch-intercept animation. This dashboard does not dress those up as live.</span>
     </div>
     <ul class="briefing-list">
       <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
@@ -464,10 +464,10 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-title">Mobile Forces — Triad Movement</div>
+    <div class="sidebar-title">Live Air Traffic · OpenSky</div>
     <table class="tracker-table">
       <thead>
-        <tr><th>Asset</th><th>Domain</th><th>Status</th></tr>
+        <tr><th>Flight</th><th>Origin</th><th>Alt</th></tr>
       </thead>
       <tbody id="move-tbody"></tbody>
     </table>
@@ -494,7 +494,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="kpi-value red" id="kpi-threats">0</div>
       </div>
       <div class="map-kpi">
-        <div class="kpi-label">Movements Detected</div>
+        <div class="kpi-label">Live Aircraft</div>
         <div class="kpi-value yellow" id="kpi-movements">0</div>
       </div>
       <div class="map-kpi">
@@ -515,6 +515,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         <div class="legend-item"><span class="legend-glyph" style="color:#00ff88;">✛</span><span class="legend-label">GBI Defense Site</span></div>
         <div class="legend-item"><span class="legend-glyph" style="color:#ffae34;">◎</span><span class="legend-label">ICBM Ground Base</span></div>
         <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">✦</span><span class="legend-label">Live Satellite (GPS/GLONASS/BeiDou)</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">✈</span><span class="legend-label">Live Aircraft (OpenSky ADS-B)</span></div>
         <div class="legend-item"><span class="legend-glyph" style="color:#3b82f6;">🌍</span><span class="legend-label">Satellite imagery layer (toggle bottom-left)</span></div>
         <div class="legend-item"><span class="legend-glyph" style="color:#cfe8ff;">📷</span><span class="legend-label">Popup → satellite view of that site</span></div>
         <div class="legend-item"><span class="legend-dash" style="border-top-style:solid;border-color:#ff8c1a;"></span><span class="legend-label">Nuke in Transit (trail)</span></div>
@@ -527,7 +528,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <div class="launch-status" id="launch-status">DPRK → CONUS · GBI defense armed</div>
       <div class="launch-eta" id="launch-eta" hidden></div>
       <button id="sat-btn" class="launch-btn toggle-btn sat-btn" type="button" aria-pressed="true" title="Live satellite tracking (orbiting)">✦ Sat Track · ON</button>
-      <button id="move-btn" class="launch-btn toggle-btn move-btn" type="button" aria-pressed="true" title="Mobile force movement (sim)">➤ Movement · ON</button>
+      <button id="move-btn" class="launch-btn toggle-btn move-btn" type="button" aria-pressed="true" title="Live aircraft (OpenSky ADS-B, CONUS)">✈ Air Traffic · ON</button>
       <button id="imagery-btn" class="launch-btn toggle-btn imagery-btn off" type="button" aria-pressed="false" title="Esri World Imagery basemap — zoom in on any facility">🌍 Imagery · OFF</button>
     </div>
   </div>
@@ -672,22 +673,12 @@ const SATELLITES = [
   {key:"sat-aehf",  name:"AEHF-7",      type:"Secure Comms Relay",     incl:30, node:90,   period:60,  dir:-1, tracks:null,   tracksLabel:"C2 relay",           glyphColor:"#cfe8ff", status:"active", label:"ONLINE"}
 ];
 
-// Mobile nuclear forces under live movement tracking, across the three triad
-// domains: ground (road-mobile TELs), air (bomber patrols), water (SSBN patrols).
-// Each rides a waypoint route and patrols back and forth (ping-pong) on a loop.
-const DOMAINS = {
-  ground: {label:"GROUND", glyph:"▣", color:"#ff8c1a"},
-  air:    {label:"AIR",    glyph:"▲", color:"#b07bff"},
-  sea:    {label:"WATER",  glyph:"◆", color:"#00aaff"}
-};
-const MOBILE_ASSETS = [
-  {key:"mv-dprk-tel", domain:"ground", name:"DPRK Hwasong-18 TEL",   flag:"🇰🇵", status:"critical", label:"RELOCATING", period:30, route:[[39.03,125.75],[39.4,126.4],[39.9,127.2],[40.3,128.0]]},
-  {key:"mv-ru-yars",  domain:"ground", name:"RS-24 Yars TEL column", flag:"🇷🇺", status:"elevated", label:"DISPERSING", period:44, route:[[55.8,37.6],[56.2,39.5],[56.7,42.0],[57.1,45.0]]},
-  {key:"mv-b52",      domain:"air",    name:"B-52H deterrence patrol",flag:"🇺🇸", status:"active",  label:"ON PATROL",  period:38, route:[[48.4,-101.4],[54,-70],[60,-25],[58,12]]},
-  {key:"mv-tu95",     domain:"air",    name:"Tu-95MS Bear patrol",   flag:"🇷🇺", status:"elevated", label:"ON PATROL",  period:42, route:[[51.2,128.5],[59,150],[66,176],[64,-165]]},
-  {key:"mv-ohio",     domain:"sea",    name:"USS Ohio SSBN patrol",  flag:"🇺🇸", status:"active",  label:"SUBMERGED",  period:54, route:[[31,-150],[26,-161],[21,-172],[17,178]]},
-  {key:"mv-borei",    domain:"sea",    name:"Borei-class SSBN patrol",flag:"🇷🇺", status:"elevated", label:"SUBMERGED",  period:50, route:[[73,40],[74.5,31],[75.5,21],[73.5,11]]}
-];
+// Live air traffic comes from the OpenSky Network ADS-B feed (real flights,
+// public, no key, CORS-enabled). Bounding box covers the continental US,
+// including the Malmstrom / Minot / F.E. Warren ICBM fields already on the map.
+// Ground (road-mobile TELs) and sea (SSBN) movement have NO public real-time
+// source — those platforms are concealed by design — so they are not faked.
+const AIRCRAFT_BOX = {lamin: 24, lomin: -125, lamax: 50, lomax: -66};
 
 // Interactive launch simulation: DPRK ICBM vs. GBI midcourse defense.
 const LAUNCH_SCENARIO = {
@@ -1147,9 +1138,8 @@ function animateCounter(elNode, target){
 function totals(){
   const totalWarheads = NATIONS.reduce((sum, n) => sum + n.warheads, 0);
   const threats = NATIONS.filter((n) => n.status === "critical").length;
-  // "Movements" = the mobile nuclear forces under live movement tracking.
-  const movements = MOBILE_ASSETS.length;
-  return {totalWarheads, threats, movements};
+  // Live-aircraft count is filled in by loadAircraft(); start at 0.
+  return {totalWarheads, threats};
 }
 
 /* ──────────────── LEAFLET MAP ──────────────── */
@@ -1243,9 +1233,8 @@ function addPlatformLayers(){
 
 // Fly the map to a platform marker and highlight its inventory row.
 function focusPlatform(key){
-  // Satellites and mobile assets live on toggleable layers — switch on first.
+  // Satellites live on a toggleable layer — switch it on before focusing one.
   if(key.startsWith("sat-") && !satLayer.active) setSatellites(true);
-  if(key.startsWith("mv-") && !moveLayer.active) setMovement(true);
   const marker = platformMarkers[key];
   if(!marker || !map) return;
   map.flyTo(marker.getLatLng(), 4, {duration: 0.8});
@@ -1459,58 +1448,99 @@ async function initSatellites(){
   renderActivity();
 }
 
-/* ── Mobile forces: ground / air / water assets patrolling waypoint routes ── */
-const moveData = {assets: []};
+/* ── Live air traffic: real aircraft from the OpenSky Network (ADS-B) ──
+   Fetch-driven (not frame-animated): markers refresh on each poll while the
+   layer is on. Falls back to an empty layer if OpenSky is unreachable. */
+// Created lazily inside setAircraft() — at top-level parse time the deferred
+// Leaflet isn't loaded yet, so L.layerGroup() would be undefined.
+let aircraftLayer = null;
+let aircraftOn = false;
+let aircraftTimer = null;
 
-// Position along a multi-leg route as a ping-pong patrol: phase 0→1 runs the
-// route forward, 1→2 runs it back, so the asset never teleports on loop.
-function routePosition(asset, tSec){
-  const r = asset.route;
-  const phase = (tSec / asset.period) % 2;
-  const frac = phase > 1 ? 2 - phase : phase;
-  let d = frac * asset._total, i = 0;
-  while(i < asset._segs.length && d > asset._segs[i]){ d -= asset._segs[i]; i++; }
-  if(i >= asset._segs.length) return r[r.length - 1].slice();
-  const s = asset._segs[i] ? d / asset._segs[i] : 0;
-  return [r[i][0] + (r[i + 1][0] - r[i][0]) * s, r[i][1] + (r[i + 1][1] - r[i][1]) * s];
+function aircraftIcon(track, altM, onGround){
+  const color = onGround ? "#6b8a78" : (altM > 9000 ? "#00aaff" : "#00ff88");
+  return L.divIcon({
+    className: "", iconSize: [16, 16], iconAnchor: [8, 8],
+    html: `<div style="transform:rotate(${(track || 0)}deg);color:${color};font-size:13px;line-height:1;text-shadow:0 0 5px ${color};">✈</div>`
+  });
 }
 
-const moveLayer = makeAnimatedLayer({
-  btnSelector: "#move-btn",
-  label: (on) => `➤ Movement · ${on ? "ON" : "OFF"}`,
-  build(group){
-    MOBILE_ASSETS.forEach((a) => {
-      const dom = DOMAINS[a.domain];
-      a._segs = [];
-      a._total = 0;
-      for(let i = 0; i < a.route.length - 1; i++){
-        const seg = Math.hypot(a.route[i + 1][0] - a.route[i][0], a.route[i + 1][1] - a.route[i][1]);
-        a._segs.push(seg); a._total += seg;
-      }
-      L.polyline(a.route, {color: dom.color, weight: 0.6, opacity: 0.2, dashArray: "2,6", interactive: false}).addTo(group);
-      const trail = L.polyline([], {color: dom.color, weight: 2, opacity: 0.7, interactive: false}).addTo(group);
-      const marker = L.marker(routePosition(a, 0), {icon: platformIcon(dom.glyph, dom.color, 20), title: a.name})
-        .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, dom.color,
-          [`Domain: ${dom.label}`, `Status: ${a.label}`, "Live movement tracking"]), {className: "custom-popup"});
-      group.addLayer(marker);
-      platformMarkers[a.key] = marker;
-      moveData.assets.push({asset: a, marker, trail, recent: []});
+async function loadAircraft(){
+  if(!aircraftOn || !map) return;
+  const {lamin, lomin, lamax, lomax} = AIRCRAFT_BOX;
+  const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
+  try{
+    const r = await fetch(url, {cache: "no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    // OpenSky state vector indices: 1 callsign, 2 country, 5 lon, 6 lat,
+    // 7 baro_altitude, 8 on_ground, 9 velocity (m/s), 10 true_track.
+    const states = (data.states || []).filter((s) => s[5] != null && s[6] != null);
+    aircraftLayer.clearLayers();
+    states.slice(0, 80).forEach((s) => {
+      const callsign = (s[1] || "").trim() || s[0];
+      const lon = s[5], lat = s[6], altM = s[7], onGround = s[8], vel = s[9], track = s[10];
+      const m = L.marker([lat, lon], {icon: aircraftIcon(track, altM, onGround), title: callsign})
+        .bindPopup(platformPopupHtml(`✈ ${callsign}`, "#00aaff", [
+          `Origin: ${s[2] || "—"}`,
+          `Altitude: ${altM != null ? Math.round(altM) + " m" : "—"}`,
+          `Speed: ${vel != null ? Math.round(vel * 3.6) + " km/h" : "—"}`,
+          onGround ? "On ground" : "Airborne",
+          "Source: OpenSky Network · live ADS-B"
+        ]), {className: "custom-popup"});
+      aircraftLayer.addLayer(m);
     });
-  },
-  update(tSec){
-    moveData.assets.forEach((m) => {
-      const p = routePosition(m.asset, tSec);
-      m.marker.setLatLng(p);
-      m.recent.push(p);
-      if(m.recent.length > 10) m.recent.shift();
-      m.trail.setLatLngs(m.recent);
-    });
+    animateCounter($("#kpi-movements"), states.length);
+    renderAircraftSidebar(states.slice(0, 12));
+  }catch(e){
+    console.warn("OpenSky air traffic unavailable:", e.message);
   }
-});
+}
+
+function renderAircraftSidebar(states){
+  const tbody = $("#move-tbody");
+  if(!tbody) return;
+  tbody.replaceChildren();
+  if(!states.length){
+    const tr = el("tr");
+    tr.innerHTML = `<td colspan="3" style="color:var(--text-muted);">Enable “✈ Air Traffic” — needs internet</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+  states.forEach((s) => {
+    const callsign = (s[1] || "").trim() || s[0];
+    const alt = s[7] != null ? Math.round(s[7]) + " m" : "—";
+    const tr = el("tr");
+    tr.innerHTML = `
+      <td class="td-system">✈ ${esc(callsign)}</td>
+      <td>${esc(s[2] || "—")}</td>
+      <td class="td-status-${s[8] ? "standby" : "active"}">${s[8] ? "GROUND" : alt}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function setAircraft(on){
+  if(!map) return;
+  if(!aircraftLayer) aircraftLayer = L.layerGroup();
+  aircraftOn = !!on;
+  const btn = $("#move-btn");
+  if(btn){
+    btn.setAttribute("aria-pressed", String(on));
+    btn.textContent = `✈ Air Traffic · ${on ? "ON" : "OFF"}`;
+    btn.classList.toggle("off", !on);
+  }
+  if(on){
+    aircraftLayer.addTo(map);
+    loadAircraft();
+    if(!aircraftTimer) aircraftTimer = setInterval(loadAircraft, 60000);
+  }else{
+    if(aircraftTimer){ clearInterval(aircraftTimer); aircraftTimer = null; }
+    map.removeLayer(aircraftLayer);
+  }
+}
 
 // Thin aliases keep the call sites readable.
 const setSatellites = (on) => satLayer.set(on);
-const setMovement = (on) => moveLayer.set(on);
 
 function buildMissileArc(from, to){
   const latlngs = [];
@@ -1570,7 +1600,7 @@ function initMap(){
 
   addPlatformLayers();
   initSatellites();          // async: real TLEs (CelesTrak) → SGP4, synthetic fallback
-  setMovement(true);
+  setAircraft(true);         // real ADS-B air traffic (OpenSky), refreshed every 60s
 
   // Leaflet can mis-measure its container inside a CSS grid/flex layout,
   // leaving the map gray until the size is recomputed.
@@ -1707,7 +1737,7 @@ function init(){
   renderInventory("#air-tbody", AIRCRAFT, [(a) => `${a.flag} ${esc(a.name)}`, (a) => a.base]);
   renderInventory("#gbi-tbody", GBI_SITES, [(g) => `${g.flag} ${esc(g.name)}`, (g) => `${g.interceptors} GBI`]);
   renderInventory("#base-tbody", GROUND_BASES, [(b) => `${b.flag} ${esc(b.name)}`, (b) => b.region]);
-  renderInventory("#move-tbody", MOBILE_ASSETS, [(a) => `${a.flag} ${esc(a.name)}`, (a) => DOMAINS[a.domain].label]);
+  renderAircraftSidebar([]);   // placeholder until the first OpenSky poll lands
   // #sat-tbody is populated by initSatellites() once real TLEs load (or fall back).
   renderAlerts();
   setActiveDefcon(activeDefcon);
@@ -1765,7 +1795,7 @@ function init(){
   if(window.L){
     launchBtn.addEventListener("click", simulateLaunch);
     satBtn.addEventListener("click", () => setSatellites(!satLayer.active));
-    moveBtn.addEventListener("click", () => setMovement(!moveLayer.active));
+    moveBtn.addEventListener("click", () => setAircraft(!aircraftOn));
     imageryBtn.addEventListener("click", () => setImagery(!imageryOn));
   }else{
     launchBtn.disabled = true;
@@ -1779,13 +1809,13 @@ function init(){
     requestAnimationFrame(() => setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200));
   }
 
-  const {totalWarheads, threats, movements} = totals();
+  const {totalWarheads, threats} = totals();
   highlightNation("usa");
 
   requestAnimationFrame(() => {
     setTimeout(() => animateCounter($("#kpi-warheads"), totalWarheads), 300);
     setTimeout(() => animateCounter($("#kpi-threats"), threats), 600);
-    setTimeout(() => animateCounter($("#kpi-movements"), movements), 900);
+    // #kpi-movements (Live Aircraft) is filled by loadAircraft() once OpenSky responds.
   });
 
   setupBriefing();
