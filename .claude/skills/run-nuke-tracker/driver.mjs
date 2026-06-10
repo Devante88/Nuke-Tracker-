@@ -72,6 +72,9 @@ const state = await page.evaluate(() => ({
   satBtn: document.querySelector("#sat-btn")?.textContent.trim() ?? "",
   satRows: document.querySelectorAll("#sat-tbody tr").length,
   feedItems: document.querySelectorAll("#intel-feed .timeline-item").length,
+  // Per-panel data-age stamps: "LIVE · Ns ago" | "SIM" | "OFFLINE" | "RATE-LIMITED"
+  stamps: Object.fromEntries([...document.querySelectorAll("[data-stamp]")]
+    .map((n) => [n.dataset.stamp, n.textContent])),
 }));
 
 await page.screenshot({ path: OUT });

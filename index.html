@@ -91,7 +91,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* SIDEBAR */
 .sidebar{grid-area:sidebar;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
 .sidebar-section{padding:var(--space-4);}
-.sidebar-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border);}
+.sidebar-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:var(--space-2);}
 .nation-card{display:flex;align-items:center;gap:var(--space-3);width:100%;padding:var(--space-3);border-radius:var(--radius-md);border:1px solid transparent;transition:background var(--transition),border-color var(--transition);margin-bottom:var(--space-2);}
 .nation-card:hover{background:var(--surface-2);border-color:var(--border);}
 .nation-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
@@ -164,7 +164,14 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 /* RIGHT PANEL */
 .right-panel{grid-area:rightpanel;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
 .rp-section{padding:var(--space-4);border-bottom:1px solid var(--border);}
-.rp-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:var(--space-3);}
+.rp-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:var(--space-3);display:flex;align-items:center;gap:var(--space-2);}
+
+/* Data-age stamps: every fetch-driven panel shows whether it's displaying
+   LIVE data (and how old) or its SIM/OFFLINE fallback. */
+.feed-stamp{margin-left:auto;font-family:var(--font-mono);font-size:0.55rem;font-weight:400;letter-spacing:0.05em;text-transform:uppercase;padding:1px 6px;border-radius:var(--radius-full);border:1px solid;white-space:nowrap;flex-shrink:0;}
+.stamp-live{color:var(--accent);border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.07);}
+.stamp-sim{color:var(--warning);border-color:rgba(255,170,0,0.3);background:rgba(255,170,0,0.07);}
+.stamp-warn{color:var(--danger);border-color:var(--border-danger);background:var(--danger-glow);}
 .alert-item{display:flex;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid rgba(255,255,255,0.04);}
 .alert-item:last-child{border-bottom:none;}
 .alert-severity{width:3px;border-radius:var(--radius-full);flex-shrink:0;align-self:stretch;}
@@ -344,7 +351,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
     <div class="briefing-warn">
       <span>⚠</span>
-      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), live air traffic (OpenSky ADS-B over CONUS), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), active federal hazard alerts (NWS), and an on-demand satellite imagery basemap (Esri — click any facility's "📷 Satellite view"). Still simulated — because there is no public real-time source: DEFCON, ground/sea force movement (road-mobile TELs and SSBNs are concealed by design), and the launch-intercept animation. This dashboard does not dress those up as live.</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), live air traffic (OpenSky ADS-B over CONUS), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), active federal hazard alerts (NWS), and an on-demand satellite imagery basemap (Esri — click any facility's "📷 Satellite view"). Still simulated — because there is no public real-time source: DEFCON, ground/sea force movement (road-mobile TELs and SSBNs are concealed by design), and the launch-intercept animation. This dashboard does not dress those up as live. Every feed panel carries a badge: <strong>LIVE · age</strong> when showing real data, <strong>SIM / OFFLINE</strong> when showing fallback data, <strong>RATE-LIMITED</strong> when a source is throttling us.</span>
     </div>
     <ul class="briefing-list">
       <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
@@ -454,7 +461,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-title">Satellite Tracking · Live</div>
+    <div class="sidebar-title">Satellite Tracking<span class="feed-stamp stamp-sim" data-stamp="sats">SIM</span></div>
     <table class="tracker-table">
       <thead>
         <tr><th>Satellite</th><th>Tracks</th><th>Status</th></tr>
@@ -464,7 +471,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="sidebar-section">
-    <div class="sidebar-title">Live Air Traffic · OpenSky</div>
+    <div class="sidebar-title">Air Traffic · OpenSky<span class="feed-stamp stamp-sim" data-stamp="aircraft" data-fallback="OFFLINE">OFFLINE</span></div>
     <table class="tracker-table">
       <thead>
         <tr><th>Flight</th><th>Origin</th><th>Alt</th></tr>
@@ -538,7 +545,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="bottom-panel">
       <div class="panel-title">
         <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        Real-time Seismic Activity · USGS
+        Seismic Activity · USGS
+        <span class="feed-stamp stamp-sim" data-stamp="seismic">SIM</span>
       </div>
       <div id="intel-feed" aria-live="polite" aria-label="Simulated intelligence feed"></div>
     </div>
@@ -546,7 +554,8 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="bottom-panel">
       <div class="panel-title">
         <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Upcoming Launches · Live (The Space Devs)
+        Upcoming Launches · The Space Devs
+        <span class="feed-stamp stamp-sim" data-stamp="launches">SIM</span>
       </div>
       <div class="launch-timeline" id="launch-timeline"></div>
     </div>
@@ -556,7 +565,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 <!-- RIGHT PANEL -->
 <aside class="right-panel">
   <div class="rp-section">
-    <div class="rp-title">⚡ Active Alerts · NWS</div>
+    <div class="rp-title">⚡ Active Alerts · NWS<span class="feed-stamp stamp-sim" data-stamp="alerts">SIM</span></div>
     <div id="alert-list"></div>
   </div>
 
@@ -577,7 +586,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   </div>
 
   <div class="rp-section">
-    <div class="rp-title">📡 Live Activity Monitor</div>
+    <div class="rp-title">📡 Live Activity Monitor<span class="feed-stamp stamp-sim" data-stamp="activity">SIM</span></div>
     <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Real-time counts · USGS · The Space Devs · CelesTrak</div>
     <div id="heat-list"></div>
     <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-faint);margin-top:var(--space-3);">Quakes M4.5+ /24h · strongest mag · upcoming launches · live satellites tracked</div>
@@ -875,6 +884,7 @@ async function loadNwsAlerts(){
       };
     });
     renderAlerts(items);
+    feedStamp("alerts");
   }catch(e){
     console.warn("NWS alerts unavailable; keeping simulated alerts:", e.message);
   }
@@ -1051,6 +1061,8 @@ async function loadLaunchWindows(){
 
     activity.launches = results.length;
     renderActivity();
+    feedStamp("launches");
+    feedStamp("activity");
   }catch(e){
     console.warn("Launch Library unavailable; keeping simulated launch windows:", e.message);
   }
@@ -1082,6 +1094,32 @@ function relTime(date){
   return `${Math.floor(sec / 86400)}d ago`;
 }
 
+/* ──────────────── DATA-AGE STAMPS ────────────────
+   Every fetch-driven panel carries a [data-stamp] chip. A loader calls
+   feedStamp(key) on success (or feedStamp(key,"limited") on a rate limit);
+   until then the chip shows its fallback label (SIM / OFFLINE), so a viewer
+   can always tell live data from fallback data — and how old it is. */
+const FEED_STATE = {};
+function feedStamp(key, state = "live"){
+  FEED_STATE[key] = {t: Date.now(), state};
+  renderFeedStamps();
+}
+function renderFeedStamps(){
+  document.querySelectorAll("[data-stamp]").forEach((node) => {
+    const s = FEED_STATE[node.dataset.stamp];
+    if(!s){
+      node.textContent = node.dataset.fallback || "SIM";
+      node.className = "feed-stamp stamp-sim";
+    }else if(s.state === "limited"){
+      node.textContent = "RATE-LIMITED";
+      node.className = "feed-stamp stamp-warn";
+    }else{
+      node.textContent = `LIVE · ${relTime(new Date(s.t))}`;
+      node.className = "feed-stamp stamp-live";
+    }
+  });
+}
+
 // Real-time seismic activity from USGS (public, CORS-enabled, no key). Each
 // significant earthquake is shown like an intel item. Nuclear tests register
 // seismically too, which makes this directly relevant to the dashboard's theme.
@@ -1100,6 +1138,8 @@ async function loadSeismicFeed(){
     activity.quakes = all.length;
     activity.strongestMag = all.reduce((mx, f) => Math.max(mx, (f.properties && f.properties.mag) || 0), 0);
     renderActivity();
+    feedStamp("seismic");
+    feedStamp("activity");
 
     const feed = $("#intel-feed");
     feed.replaceChildren();
@@ -1446,6 +1486,7 @@ async function initSatellites(){
   animateCounter($("#kpi-satellites"), satItems.length);
   activity.satellites = satItems.length;
   renderActivity();
+  if(satReal){ feedStamp("sats"); feedStamp("activity"); }
 }
 
 /* ── Live air traffic: real aircraft from the OpenSky Network (ADS-B) ──
@@ -1465,12 +1506,26 @@ function aircraftIcon(track, altM, onGround){
   });
 }
 
+// OpenSky's anonymous tier is rate-limited (~400 calls/day per IP). On a 429
+// we honor Retry-After (default 10 min), keep the stale markers on the map,
+// and flip the panel stamp to RATE-LIMITED instead of failing silently.
+let aircraftBackoffUntil = 0;
+
 async function loadAircraft(){
   if(!aircraftOn || !map) return;
+  if(Date.now() < aircraftBackoffUntil) return;
   const {lamin, lomin, lamax, lomax} = AIRCRAFT_BOX;
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
   try{
     const r = await fetch(url, {cache: "no-store"});
+    if(r.status === 429){
+      const retryAfter = parseInt(r.headers.get("Retry-After") || "", 10);
+      const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 600;
+      aircraftBackoffUntil = Date.now() + waitSec * 1000;
+      feedStamp("aircraft", "limited");
+      console.warn(`OpenSky rate-limited; backing off ${waitSec}s`);
+      return;
+    }
     if(!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json();
     // OpenSky state vector indices: 1 callsign, 2 country, 5 lon, 6 lat,
@@ -1492,6 +1547,7 @@ async function loadAircraft(){
     });
     animateCounter($("#kpi-movements"), states.length);
     renderAircraftSidebar(states.slice(0, 12));
+    feedStamp("aircraft");
   }catch(e){
     console.warn("OpenSky air traffic unavailable:", e.message);
   }
@@ -1749,6 +1805,10 @@ function init(){
 
   updateClock();
   setInterval(updateClock, 1000);
+
+  // Keep the per-panel LIVE · age labels ticking.
+  renderFeedStamps();
+  setInterval(renderFeedStamps, 10000);
 
   // Real seismic feed from USGS. Initial fetch + every 5 min refresh. The
   // simulated INITIAL_FEED already rendered above is the offline fallback.
