@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NUCLEAR ARMS GLOBAL TRACKER</title>
+<meta name="description" content="Fictional, simulation-only intelligence dashboard concept. Warhead figures are public estimates; all alerts and events are invented for the demo.">
+<meta name="theme-color" content="#080c0f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'><circle cx='18' cy='18' r='16' fill='none' stroke='%2300ff88' stroke-width='2'/><circle cx='18' cy='18' r='8' fill='none' stroke='%2300ff88' stroke-width='1.5' opacity='0.6'/><circle cx='18' cy='18' r='3' fill='%2300ff88'/></svg>">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NAGT // Nuclear Arms Global Tracker">
+<meta property="og:description" content="A fictional, simulation-only nuclear-arms intelligence dashboard concept.">
+<meta name="twitter:card" content="summary">
+<!-- Fully self-hosted: no external CDNs, so the app works deployed, locally, and offline. -->
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css"/>
+<script src="vendor/leaflet/leaflet.js" defer></script>
+<script src="vendor/world/world.js" defer></script>
+<script src="vendor/satellite/satellite.min.js" defer></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --font-display:'Orbitron',sans-serif;
+  --font-mono:'Share Tech Mono',monospace;
+  --font-body:'Inter','Helvetica Neue',sans-serif;
+  --text-xs:clamp(0.65rem,0.6rem+0.2vw,0.75rem);
+  --text-sm:clamp(0.75rem,0.7rem+0.25vw,0.875rem);
+  --text-base:clamp(0.875rem,0.82rem+0.25vw,1rem);
+  --text-lg:clamp(1rem,0.9rem+0.5vw,1.25rem);
+  --text-xl:clamp(1.25rem,1rem+1vw,1.75rem);
+  --space-1:0.25rem;--space-2:0.5rem;--space-3:0.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --radius-sm:0.25rem;--radius-md:0.375rem;--radius-lg:0.5rem;--radius-full:9999px;
+  --transition:180ms cubic-bezier(0.16,1,0.3,1);
+}
+[data-theme="dark"]{
+  --bg:#080c0f;
+  --surface:#0d1318;
+  --surface-2:#111820;
+  --surface-3:#162028;
+  --border:rgba(0,255,136,0.12);
+  --border-danger:rgba(255,40,40,0.3);
+  --text:#d0e8d8;
+  --text-muted:#6b8a78;
+  --text-faint:#3a5248;
+  --accent:#00ff88;
+  --accent-dim:#00a855;
+  --accent-glow:rgba(0,255,136,0.15);
+  --danger:#ff3333;
+  --danger-dim:#cc0000;
+  --danger-glow:rgba(255,51,51,0.2);
+  --warning:#ffaa00;
+  --warning-dim:#cc7700;
+  --warning-glow:rgba(255,170,0,0.15);
+  --info:#00aaff;
+  --shadow:0 4px 24px rgba(0,0,0,0.6);
+}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth;}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-sm);color:var(--text);background:var(--bg);overflow-x:hidden;}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit;text-align:left;}
+img{display:block;max-width:100%;}
+
+/* SHARED ANIMATIONS */
+@keyframes pulseDanger{0%,100%{box-shadow:0 0 8px var(--danger-glow)}50%{box-shadow:0 0 20px rgba(255,51,51,0.4)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes ripple{0%{transform:scale(1);opacity:1}100%{transform:scale(2.5);opacity:0}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;}}
+
+/* SCANLINE OVERLAY */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+/* LAYOUT */
+.app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:260px 1fr 280px;grid-template-areas:"header header header""sidebar main rightpanel";height:100dvh;}
+
+/* HEADER */
+.header{grid-area:header;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:var(--space-3) var(--space-6);background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.header-logo{display:flex;align-items:center;gap:var(--space-3);}
+.logo-svg{flex-shrink:0;}
+.header-title{font-family:var(--font-display);font-size:clamp(1.1rem,0.65rem+1.6vw,1.6rem);font-weight:100;letter-spacing:-0.015em;line-height:1.05;color:var(--accent);text-transform:uppercase;text-shadow:0 0 14px var(--accent-glow);}
+.header-subtitle{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);letter-spacing:0.08em;}
+.header-center{display:flex;align-items:center;gap:var(--space-4);}
+.defcon-badge{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);border:1px solid var(--danger);border-radius:var(--radius-sm);background:var(--danger-glow);animation:pulseDanger 2s ease-in-out infinite;}
+.defcon-label{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;color:var(--text-muted);text-transform:uppercase;}
+.defcon-value{font-family:var(--font-display);font-size:var(--text-xl);font-weight:900;color:var(--danger);text-shadow:0 0 12px var(--danger);}
+.defcon-sub{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--danger);opacity:0.8;}
+.header-right{display:flex;align-items:center;gap:var(--space-4);}
+.live-indicator{display:flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-xs);color:var(--accent);}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1s ease-in-out infinite;}
+.clock{font-family:var(--font-mono);font-size:var(--text-sm);color:var(--text-muted);letter-spacing:0.05em;}
+
+/* SIDEBAR */
+.sidebar{grid-area:sidebar;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
+.sidebar-section{padding:var(--space-4);}
+.sidebar-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:var(--space-2);}
+.nation-card{display:flex;align-items:center;gap:var(--space-3);width:100%;padding:var(--space-3);border-radius:var(--radius-md);border:1px solid transparent;transition:background var(--transition),border-color var(--transition);margin-bottom:var(--space-2);}
+.nation-card:hover{background:var(--surface-2);border-color:var(--border);}
+.nation-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.nation-card.active{background:var(--accent-glow);border-color:var(--accent-dim);}
+.nation-card.elevated{background:rgba(255,170,0,0.06);border-color:rgba(255,170,0,0.2);}
+.nation-card.critical{background:var(--danger-glow);border-color:var(--border-danger);animation:pulseDanger 3s ease-in-out infinite;}
+.flag-box{width:32px;height:22px;border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;}
+.nation-info{flex:1;min-width:0;}
+.nation-name{font-size:var(--text-sm);font-weight:600;color:var(--text);}
+.nation-warheads{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);}
+.nation-dev{font-family:var(--font-mono);font-size:0.6rem;font-weight:700;margin-left:var(--space-1);white-space:nowrap;}
+.dev-row{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) 0;}
+.dev-flag{font-size:0.9rem;width:18px;flex-shrink:0;}
+.dev-name{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text);flex:1;min-width:0;}
+.dev-sym{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;width:24px;text-align:center;}
+.dev-tag{font-family:var(--font-mono);font-size:0.6rem;font-weight:700;letter-spacing:0.06em;width:92px;text-align:right;}
+.nation-status{display:flex;align-items:center;gap:var(--space-1);}
+.status-dot{width:6px;height:6px;border-radius:50%;}
+.status-text{font-family:var(--font-mono);font-size:var(--text-xs);}
+.status-nominal{color:var(--accent-dim);}
+.status-elevated{color:var(--warning);}
+.status-critical{color:var(--danger);animation:blink 1s infinite;}
+.dot-nominal{background:var(--accent-dim);}
+.dot-elevated{background:var(--warning);}
+.dot-critical{background:var(--danger);}
+
+/* MAIN */
+.main{grid-area:main;display:flex;flex-direction:column;overflow-y:auto;min-width:0;min-height:0;}
+.map-wrapper{position:relative;flex:1;min-height:480px;}
+#map{width:100%;height:100%;min-height:480px;background:#080c0f;}
+.map-overlay-top{position:absolute;top:var(--space-3);left:var(--space-3);right:var(--space-3);z-index:10;display:flex;flex-wrap:wrap;gap:var(--space-3);pointer-events:none;}
+.map-kpi{background:rgba(13,19,24,0.92);border:1px solid var(--border);border-radius:var(--radius-md);padding:4px 10px;backdrop-filter:blur(8px);}
+.kpi-label{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;}
+.kpi-value{font-family:var(--font-display);font-size:var(--text-base);font-weight:700;line-height:1.1;}
+.kpi-value.green{color:var(--accent);}
+.kpi-value.red{color:var(--danger);}
+.kpi-value.yellow{color:var(--warning);}
+.kpi-value.blue{color:var(--info);}
+/* Compact legend: a tiny chip in the bottom-right that toggles a popover.
+   The full panel was 11 rows tall and ate the map; this hides it until asked. */
+.map-legend{position:absolute;bottom:var(--space-3);right:var(--space-3);z-index:10;}
+.legend-trigger{font-family:var(--font-mono);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);background:rgba(13,19,24,0.92);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;backdrop-filter:blur(8px);cursor:pointer;}
+.legend-trigger:hover{color:var(--accent);border-color:var(--accent-dim);}
+.legend-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.legend-panel{position:absolute;bottom:30px;right:0;width:240px;max-height:60dvh;overflow-y:auto;background:rgba(13,19,24,0.96);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);backdrop-filter:blur(8px);box-shadow:var(--shadow);display:none;}
+.legend-panel.open{display:block;}
+.legend-title{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);text-transform:uppercase;letter-spacing:0.1em;display:flex;justify-content:space-between;align-items:center;}
+.legend-close{font-family:var(--font-mono);font-size:var(--text-base);line-height:1;color:var(--text-muted);background:none;border:0;padding:0 4px;cursor:pointer;}
+.legend-close:hover{color:var(--text);}
+.legend-item{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-1);}
+.legend-dot{width:10px;height:10px;border-radius:50%;}
+.legend-label{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);}
+
+/* BOTTOM PANELS */
+.bottom-panels{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);}
+.bottom-panel{background:var(--surface);padding:var(--space-4);}
+.panel-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.15em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:var(--space-3);display:flex;align-items:center;gap:var(--space-2);}
+.panel-icon{width:14px;height:14px;flex-shrink:0;}
+.timeline-item{display:flex;gap:var(--space-3);margin-bottom:var(--space-3);padding-bottom:var(--space-3);border-bottom:1px solid var(--border);}
+.timeline-item:last-child{border-bottom:none;margin-bottom:0;}
+.timeline-time{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);white-space:nowrap;padding-top:2px;}
+.timeline-title{font-size:var(--text-xs);font-weight:600;color:var(--text);margin-bottom:2px;}
+.timeline-desc{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);line-height:1.5;}
+.badge{display:inline-block;padding:1px 6px;border-radius:var(--radius-full);font-family:var(--font-mono);font-size:0.6rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;margin-left:var(--space-1);}
+.badge-test{background:rgba(0,170,255,0.15);color:var(--info);border:1px solid rgba(0,170,255,0.3);}
+.badge-alert{background:var(--danger-glow);color:var(--danger);border:1px solid var(--border-danger);}
+.badge-movement{background:var(--warning-glow);color:var(--warning);border:1px solid rgba(255,170,0,0.3);}
+.badge-nominal{background:rgba(0,168,85,0.1);color:var(--accent-dim);border:1px solid rgba(0,168,85,0.2);}
+
+/* RIGHT PANEL */
+.right-panel{grid-area:rightpanel;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;min-height:0;display:flex;flex-direction:column;}
+.rp-section{padding:var(--space-4);border-bottom:1px solid var(--border);}
+.rp-title{font-family:var(--font-display);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--accent-dim);margin-bottom:var(--space-3);display:flex;align-items:center;gap:var(--space-2);}
+
+/* Data-age stamps: every fetch-driven panel shows whether it's displaying
+   LIVE data (and how old) or its SIM/OFFLINE fallback. */
+.feed-stamp{margin-left:auto;font-family:var(--font-mono);font-size:0.55rem;font-weight:400;letter-spacing:0.05em;text-transform:uppercase;padding:1px 6px;border-radius:var(--radius-full);border:1px solid;white-space:nowrap;flex-shrink:0;}
+.stamp-live{color:var(--accent);border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.07);}
+.stamp-sim{color:var(--warning);border-color:rgba(255,170,0,0.3);background:rgba(255,170,0,0.07);}
+.stamp-warn{color:var(--danger);border-color:var(--border-danger);background:var(--danger-glow);}
+.alert-item{display:flex;gap:var(--space-3);padding:var(--space-2) 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+.alert-item:last-child{border-bottom:none;}
+.alert-severity{width:3px;border-radius:var(--radius-full);flex-shrink:0;align-self:stretch;}
+.sev-critical{background:var(--danger);}
+.sev-high{background:var(--warning);}
+.sev-medium{background:var(--info);}
+.sev-low{background:var(--accent-dim);}
+.alert-title{font-size:var(--text-xs);font-weight:600;color:var(--text);margin-bottom:2px;}
+.alert-meta{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);}
+
+/* DEFCON SCALE */
+.defcon-scale{display:flex;flex-direction:column;gap:var(--space-2);}
+.defcon-row{display:flex;align-items:center;gap:var(--space-3);width:100%;text-align:left;padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);border:1px solid transparent;transition:all var(--transition);}
+.defcon-row.defcon-dim{opacity:0.5;}
+.defcon-row:hover{opacity:1;background:var(--surface-2);border-color:var(--border);}
+.defcon-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.defcon-row.active-level{opacity:1;border-color:var(--danger);background:var(--danger-glow);}
+.defcon-num{font-family:var(--font-display);font-size:var(--text-base);font-weight:900;width:24px;text-align:center;}
+.defcon-name{font-size:var(--text-xs);font-weight:600;color:var(--text);}
+.defcon-desc{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);}
+.defcon-pip{width:10px;height:10px;border-radius:50%;margin-left:auto;flex-shrink:0;}
+
+/* WARHEAD COUNT BARS */
+.wh-row{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);}
+.wh-flag{font-size:0.9rem;width:18px;}
+.wh-name{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);width:54px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wh-bar-wrap{flex:1;height:6px;background:var(--surface-3);border-radius:var(--radius-full);overflow:hidden;}
+.wh-bar{height:100%;border-radius:var(--radius-full);transition:width 1s ease;}
+.wh-count{font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);width:36px;text-align:right;flex-shrink:0;}
+
+/* MISSILE TRACKER TABLE */
+.tracker-table{width:100%;border-collapse:collapse;}
+.tracker-table th{font-family:var(--font-display);font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);padding:var(--space-2);text-align:left;border-bottom:1px solid var(--border);}
+.tracker-table td{font-family:var(--font-mono);font-size:var(--text-xs);padding:var(--space-2);border-bottom:1px solid rgba(255,255,255,0.03);color:var(--text-muted);vertical-align:top;}
+.tracker-table tr:hover td{background:rgba(0,255,136,0.02);}
+.td-system{color:var(--text);font-weight:600;}
+.td-status-active{color:var(--accent);}
+.td-status-elevated{color:var(--warning);}
+.td-status-standby{color:var(--text-muted);}
+.td-status-test{color:var(--info);}
+
+/* LAUNCH WINDOW */
+.launch-timeline{position:relative;padding-left:var(--space-6);}
+.launch-timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1px;background:var(--border);}
+.lt-item{position:relative;margin-bottom:var(--space-4);}
+.lt-item::before{content:'';position:absolute;left:-22px;top:4px;width:8px;height:8px;border-radius:50%;border:1px solid;}
+.lt-item.lt-danger::before{background:var(--danger);border-color:var(--danger);box-shadow:0 0 6px var(--danger);}
+.lt-item.lt-warn::before{background:var(--warning);border-color:var(--warning);}
+.lt-item.lt-info::before{background:var(--info);border-color:var(--info);}
+.lt-item.lt-ok::before{background:var(--accent-dim);border-color:var(--accent-dim);}
+.lt-window{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;}
+.lt-event{font-size:var(--text-xs);color:var(--text);font-weight:500;}
+.lt-detail{font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);margin-top:2px;}
+
+/* LAUNCH CONTROL */
+.launch-control{position:absolute;bottom:var(--space-3);left:var(--space-3);z-index:10;display:flex;flex-direction:column;gap:6px;max-width:220px;}
+.launch-btn{font-family:var(--font-display);font-size:var(--text-xs);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,var(--danger-dim),var(--danger));border:1px solid var(--danger);border-radius:var(--radius-md);padding:var(--space-2) var(--space-4);box-shadow:0 0 12px var(--danger-glow);transition:box-shadow var(--transition);}
+.launch-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(255,51,51,0.5);}
+.launch-btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.launch-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.launch-status{font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);background:rgba(13,19,24,0.92);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-1) var(--space-2);backdrop-filter:blur(8px);}
+.launch-status.intercepted{color:var(--accent);border-color:var(--accent-dim);}
+.launch-status.impact{color:var(--danger);border-color:var(--border-danger);}
+.toggle-btn{font-size:0.6rem;padding:3px 10px;letter-spacing:0.08em;}
+.sat-btn{background:linear-gradient(90deg,#007a66,#00e0c0);border-color:#00e0c0;color:#012;box-shadow:0 0 12px rgba(0,224,192,0.25);}
+.sat-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(0,224,192,0.5);}
+.move-btn{background:linear-gradient(90deg,#8a4a00,#ff9a2a);border-color:#ff9a2a;color:#120a00;box-shadow:0 0 12px rgba(255,154,42,0.25);}
+.imagery-btn{background:linear-gradient(90deg,#1f3a8a,#3b82f6);border-color:#3b82f6;color:#fff;box-shadow:0 0 12px rgba(59,130,246,0.25);}
+.imagery-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(59,130,246,0.5);}
+.move-btn:hover:not(:disabled){box-shadow:0 0 18px rgba(255,154,42,0.5);}
+.toggle-btn.off{background:linear-gradient(90deg,#1a2a30,#22343c);border-color:var(--border);color:var(--text-muted);box-shadow:none;}
+.launch-eta{font-family:var(--font-display);font-size:var(--text-base);font-weight:700;letter-spacing:0.08em;color:var(--warning);background:rgba(13,19,24,0.92);border:1px solid var(--warning-dim);border-radius:var(--radius-sm);padding:var(--space-1) var(--space-3);backdrop-filter:blur(8px);text-shadow:0 0 10px var(--warning-glow);}
+.launch-eta.impact{color:var(--danger);border-color:var(--border-danger);text-shadow:0 0 12px var(--danger);}
+.launch-eta.safe{color:var(--accent);border-color:var(--accent-dim);text-shadow:0 0 10px var(--accent-glow);}
+
+/* LEGEND GLYPHS */
+.legend-glyph{width:10px;text-align:center;font-size:0.8rem;line-height:1;}
+.legend-dash{display:inline-block;width:12px;height:0;border-top:1px dashed;}
+
+/* LEAFLET MARKER + POPUP OVERRIDES */
+.nuke-marker{position:relative;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.nuke-marker__core{border-radius:50%;}
+.nuke-marker--pulse{animation:ripple 1.5s ease-out infinite;}
+.nuke-marker--pulse .nuke-marker__core{animation:blink 1s infinite;}
+.platform-marker{display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);font-size:12px;font-weight:700;line-height:1;}
+.warhead-dot{width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 10px #fff,0 0 18px var(--danger);}
+.burst{border-radius:50%;animation:burst 0.9s ease-out forwards;}
+@keyframes burst{0%{transform:scale(0.2);opacity:0.95}100%{transform:scale(2.8);opacity:0}}
+.leaflet-popup-content-wrapper{background:transparent;border:none;box-shadow:none;padding:0;}
+.leaflet-popup-tip{display:none;}
+.leaflet-popup-content{margin:0;}
+
+/* ─── ELEVATION: TACTICAL HUD + INTERACTION POLISH ─── */
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes radarSweep{to{transform:translate(-50%,-50%) rotate(360deg);}}
+@keyframes revealCol{from{opacity:0;}to{opacity:1;}}
+
+/* Staggered column reveal. Opacity-only and with no base opacity:0, so when
+   prefers-reduced-motion disables animation the panels simply show at full opacity. */
+.header{animation:revealCol 0.5s ease both;}
+.sidebar{animation:revealCol 0.5s ease 0.08s both;}
+.main{animation:revealCol 0.5s ease 0.16s both;}
+.right-panel{animation:revealCol 0.5s ease 0.24s both;}
+
+/* Rotating radar line inside the header logo */
+.logo-sweep{transform-origin:18px 18px;animation:spin 4s linear infinite;}
+
+/* Map tactical framing: vignette, corner brackets, faint radar sweep */
+.map-hud{position:absolute;inset:0;z-index:5;pointer-events:none;}
+.map-hud::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 140px rgba(0,0,0,0.6);}
+.hud-bracket{position:absolute;width:24px;height:24px;border:2px solid var(--accent);opacity:0.3;}
+.hud-bracket.tl{top:10px;left:10px;border-right:0;border-bottom:0;}
+.hud-bracket.tr{top:10px;right:10px;border-left:0;border-bottom:0;}
+.hud-bracket.bl{bottom:10px;left:10px;border-right:0;border-top:0;}
+.hud-bracket.br{bottom:10px;right:10px;border-left:0;border-top:0;}
+.radar-sweep{position:absolute;top:50%;left:50%;width:min(95%,820px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:conic-gradient(from 0deg,var(--accent) 0deg,transparent 45deg);opacity:0.06;animation:radarSweep 9s linear infinite;}
+
+/* Satellite-uplink loader shown until the basemap tiles arrive */
+.map-loader{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;gap:var(--space-3);background:var(--bg);color:var(--accent-dim);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.18em;text-transform:uppercase;transition:opacity 0.6s ease;}
+.map-loader.hidden{opacity:0;pointer-events:none;}
+.map-loader__spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+
+/* KPI accent strip */
+.map-kpi{position:relative;overflow:hidden;}
+.map-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent);opacity:0.5;}
+
+/* Inventory rows are clickable and fly the map to that platform */
+.tracker-table tbody tr{cursor:pointer;transition:background var(--transition);}
+.tracker-table tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.tracker-table tbody tr.row-active td{background:var(--accent-glow);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--radius-full);}
+
+/* RESPONSIVE */
+@media(max-width:1100px){
+  .app{grid-template-columns:220px 1fr;grid-template-areas:"header header""sidebar main";}
+  .right-panel{display:none;}
+}
+@media(max-width:768px){
+  .app{grid-template-columns:1fr;grid-template-areas:"header""main";}
+  .sidebar{display:none;}
+  .bottom-panels{grid-template-columns:1fr;}
+}
+
+/* ─── FIRST-LOAD BRIEFING OVERLAY ─── */
+.briefing{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:var(--space-4);background:rgba(4,7,9,0.82);backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity var(--transition);}
+.briefing.show{opacity:1;visibility:visible;}
+.briefing-card{position:relative;width:min(560px,100%);max-height:88dvh;overflow-y:auto;background:var(--surface);border:1px solid var(--accent-dim);border-radius:var(--radius-lg);box-shadow:0 0 40px rgba(0,255,136,0.12),var(--shadow);padding:var(--space-6);transform:translateY(8px);transition:transform var(--transition);}
+.briefing.show .briefing-card{transform:translateY(0);}
+.briefing-eyebrow{font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-2);}
+.briefing-title{font-family:var(--font-display);font-size:var(--text-xl);font-weight:100;letter-spacing:-0.01em;color:var(--accent);text-shadow:0 0 14px var(--accent-glow);margin-bottom:var(--space-3);}
+.briefing-warn{display:flex;gap:var(--space-2);align-items:flex-start;font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.5;color:var(--danger);background:var(--danger-glow);border:1px solid var(--border-danger);border-radius:var(--radius-sm);padding:var(--space-3);margin-bottom:var(--space-4);}
+.briefing-list{list-style:none;display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-5);}
+.briefing-list li{display:flex;gap:var(--space-3);font-size:var(--text-sm);line-height:1.45;color:var(--text);}
+.briefing-list .bk{flex-shrink:0;width:18px;text-align:center;}
+.briefing-list .bl{color:var(--text-muted);font-family:var(--font-mono);font-size:var(--text-xs);}
+.briefing-enter{width:100%;font-family:var(--font-display);font-size:var(--text-sm);font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#012;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:var(--radius-md);padding:var(--space-3);box-shadow:0 0 18px var(--accent-glow);transition:box-shadow var(--transition);}
+.briefing-enter:hover{box-shadow:0 0 26px rgba(0,255,136,0.45);}
+.briefing-enter:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.briefing-close{position:absolute;top:var(--space-3);right:var(--space-4);font-family:var(--font-mono);font-size:var(--text-lg);color:var(--text-muted);line-height:1;}
+.briefing-close:hover{color:var(--text);}
+.briefing-btn{display:flex;align-items:center;gap:var(--space-1);font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;transition:all var(--transition);}
+.briefing-btn:hover{color:var(--accent);border-color:var(--accent-dim);}
+.briefing-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<!-- FIRST-LOAD BRIEFING -->
+<div class="briefing" id="briefing" role="dialog" aria-modal="true" aria-labelledby="briefing-title" hidden>
+  <div class="briefing-card">
+    <button class="briefing-close" id="briefing-close" type="button" aria-label="Close briefing">✕</button>
+    <div class="briefing-eyebrow">Mission Briefing</div>
+    <div class="briefing-title" id="briefing-title">NAGT // Nuclear Arms Global Tracker</div>
+    <div class="briefing-warn">
+      <span>⚠</span>
+      <span><strong>Hybrid — real and simulated.</strong> Live data: your local clock, real satellite positions (GPS / GLONASS / BeiDou via CelesTrak TLEs + SGP4), live air traffic (OpenSky ADS-B over CONUS), seismic events (USGS), upcoming rocket launches with live T- countdown (The Space Devs), active federal hazard alerts (NWS), and an on-demand satellite imagery basemap (Esri — click any facility's "📷 Satellite view"). Still simulated — because there is no public real-time source: DEFCON, ground/sea force movement (road-mobile TELs and SSBNs are concealed by design), and the launch-intercept animation. This dashboard does not dress those up as live. Every feed panel carries a badge: <strong>LIVE · age</strong> when showing real data, <strong>SIM / OFFLINE</strong> when showing fallback data, <strong>RATE-LIMITED</strong> when a source is throttling us.</span>
+    </div>
+    <ul class="briefing-list">
+      <li><span class="bk">🗺</span><span>Nine nuclear states on an offline tactical map. <span class="bl">Click any nation or sidebar row to fly there.</span></span></li>
+      <li><span class="bk">🛰</span><span>Satellite &amp; triad-movement tracking (ground · air · water). <span class="bl">Toggle from the map controls.</span></span></li>
+      <li><span class="bk">☢</span><span>Interactive DEFCON scale + arsenal-development trends. <span class="bl">Click a DEFCON level to set posture.</span></span></li>
+      <li><span class="bk">⚠</span><span>Launch simulation with live impact-ETA &amp; GBI intercept. <span class="bl">Hit “Simulate Launch”.</span></span></li>
+    </ul>
+    <button class="briefing-enter" id="briefing-enter" type="button">Enter Dashboard ▸</button>
+  </div>
+</div>
+
+<div class="app">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">
+    <svg class="logo-svg" width="36" height="36" viewBox="0 0 36 36" fill="none" aria-label="NAGT Logo" role="img">
+      <circle cx="18" cy="18" r="17" stroke="#00ff88" stroke-width="1" opacity="0.4"/>
+      <circle cx="18" cy="18" r="12" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+      <circle cx="18" cy="18" r="6" stroke="#00ff88" stroke-width="1" opacity="0.6"/>
+      <line x1="1" y1="18" x2="35" y2="18" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+      <line x1="18" y1="1" x2="18" y2="35" stroke="#00ff88" stroke-width="0.5" opacity="0.3"/>
+      <path d="M3 10 L33 10" stroke="#00ff88" stroke-width="0.3" opacity="0.2"/>
+      <path d="M3 26 L33 26" stroke="#00ff88" stroke-width="0.3" opacity="0.2"/>
+      <line class="logo-sweep" x1="18" y1="18" x2="18" y2="3" stroke="#00ff88" stroke-width="1" opacity="0.85"/>
+      <circle cx="18" cy="18" r="2" fill="#00ff88"/>
+    </svg>
+    <div>
+      <div class="header-title">NAGT // Nuclear Arms Global Tracker</div>
+      <div class="header-subtitle">TACTICAL DASHBOARD · LIVE SEISMIC + SIMULATED INTEL</div>
+    </div>
+  </div>
+  <div class="header-center">
+    <div class="defcon-badge">
+      <div>
+        <div class="defcon-label">DEFCON</div>
+        <div class="defcon-value" id="defcon-num">3</div>
+      </div>
+      <div class="defcon-sub" id="defcon-status-text">ELEVATED</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="briefing-btn" id="briefing-open" type="button" title="Show mission briefing">ⓘ Briefing</button>
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      <span>SIM FEED</span>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-title">Nuclear States</div>
+    <div id="nation-list"></div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Missile System Inventory</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>System</th><th>Range</th><th>Status</th></tr>
+      </thead>
+      <tbody id="missile-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">SSBN Submarines</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Boat</th><th>SLBM</th><th>Status</th></tr>
+      </thead>
+      <tbody id="sub-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Strategic Aircraft</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Bomber</th><th>Base</th><th>Status</th></tr>
+      </thead>
+      <tbody id="air-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Missile Defense (GBI)</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Site</th><th>GBI</th><th>Status</th></tr>
+      </thead>
+      <tbody id="gbi-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">ICBM Ground Bases</div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Base</th><th>State</th><th>Status</th></tr>
+      </thead>
+      <tbody id="base-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Satellite Tracking<span class="feed-stamp stamp-sim" data-stamp="sats">SIM</span></div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Satellite</th><th>Tracks</th><th>Status</th></tr>
+      </thead>
+      <tbody id="sat-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-title">Air Traffic · OpenSky<span class="feed-stamp stamp-sim" data-stamp="aircraft" data-fallback="OFFLINE">OFFLINE</span></div>
+    <table class="tracker-table">
+      <thead>
+        <tr><th>Flight</th><th>Origin</th><th>Alt</th></tr>
+      </thead>
+      <tbody id="move-tbody"></tbody>
+    </table>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+  <div class="map-wrapper">
+    <div id="map" role="region" aria-label="World map of nuclear-armed states and strategic platforms"></div>
+    <div class="map-hud" aria-hidden="true">
+      <span class="radar-sweep"></span>
+      <span class="hud-bracket tl"></span><span class="hud-bracket tr"></span>
+      <span class="hud-bracket bl"></span><span class="hud-bracket br"></span>
+    </div>
+    <div class="map-loader" id="map-loader"><span class="map-loader__spin"></span>Initializing tactical display…</div>
+    <div class="map-overlay-top">
+      <div class="map-kpi">
+        <div class="kpi-label">Total Warheads</div>
+        <div class="kpi-value green" id="kpi-warheads">0</div>
+      </div>
+      <div class="map-kpi">
+        <div class="kpi-label">Active Threats</div>
+        <div class="kpi-value red" id="kpi-threats">0</div>
+      </div>
+      <div class="map-kpi">
+        <div class="kpi-label">Live Aircraft</div>
+        <div class="kpi-value yellow" id="kpi-movements">0</div>
+      </div>
+      <div class="map-kpi">
+        <div class="kpi-label">Monitoring Satellites</div>
+        <div class="kpi-value blue" id="kpi-satellites">0</div>
+      </div>
+    </div>
+    <div class="map-legend">
+      <button class="legend-trigger" id="legend-trigger" type="button" aria-expanded="false" aria-controls="legend-panel">ⓘ Legend</button>
+      <div class="legend-panel" id="legend-panel" role="region" aria-label="Map legend">
+        <div class="legend-title"><span>Legend</span><button class="legend-close" id="legend-close" type="button" aria-label="Close legend">✕</button></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3333;box-shadow:0 0 6px #ff3333;"></div><span class="legend-label">Critical / Active Alert</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffaa00;"></div><span class="legend-label">Elevated / Movement</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00ff88;"></div><span class="legend-label">Nominal / Monitoring</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00aaff;"></div><span class="legend-label">Test / Exercise</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">◆</span><span class="legend-label">SSBN Submarine</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#b07bff;">▲</span><span class="legend-label">Strategic Bomber</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#00ff88;">✛</span><span class="legend-label">GBI Defense Site</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#ffae34;">◎</span><span class="legend-label">ICBM Ground Base</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">✦</span><span class="legend-label">Live Satellite (GPS/GLONASS/BeiDou)</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#00aaff;">✈</span><span class="legend-label">Live Aircraft (OpenSky ADS-B)</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#3b82f6;">🌍</span><span class="legend-label">Satellite imagery layer (toggle bottom-left)</span></div>
+        <div class="legend-item"><span class="legend-glyph" style="color:#cfe8ff;">📷</span><span class="legend-label">Popup → satellite view of that site</span></div>
+        <div class="legend-item"><span class="legend-dash" style="border-top-style:solid;border-color:#ff8c1a;"></span><span class="legend-label">Nuke in Transit (trail)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(255,51,51,0.2);width:14px;height:14px;border-radius:0;"></div><span class="legend-label">Blast Radius (sim)</span></div>
+      </div>
+    </div>
+
+    <div class="launch-control">
+      <button id="launch-btn" class="launch-btn" type="button">⚠ Simulate Launch</button>
+      <div class="launch-status" id="launch-status">DPRK → CONUS · GBI defense armed</div>
+      <div class="launch-eta" id="launch-eta" hidden></div>
+      <button id="sat-btn" class="launch-btn toggle-btn sat-btn" type="button" aria-pressed="true" title="Live satellite tracking (orbiting)">✦ Sat Track · ON</button>
+      <button id="move-btn" class="launch-btn toggle-btn move-btn" type="button" aria-pressed="true" title="Live aircraft (OpenSky ADS-B, CONUS)">✈ Air Traffic · ON</button>
+      <button id="imagery-btn" class="launch-btn toggle-btn imagery-btn off" type="button" aria-pressed="false" title="Esri World Imagery basemap — zoom in on any facility">🌍 Imagery · OFF</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM PANELS -->
+  <div class="bottom-panels">
+    <div class="bottom-panel">
+      <div class="panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Seismic Activity · USGS
+        <span class="feed-stamp stamp-sim" data-stamp="seismic">SIM</span>
+      </div>
+      <div id="intel-feed" aria-live="polite" aria-label="Simulated intelligence feed"></div>
+    </div>
+
+    <div class="bottom-panel">
+      <div class="panel-title">
+        <svg class="panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Upcoming Launches · The Space Devs
+        <span class="feed-stamp stamp-sim" data-stamp="launches">SIM</span>
+      </div>
+      <div class="launch-timeline" id="launch-timeline"></div>
+    </div>
+  </div>
+</main>
+
+<!-- RIGHT PANEL -->
+<aside class="right-panel">
+  <div class="rp-section">
+    <div class="rp-title">⚡ Active Alerts · NWS<span class="feed-stamp stamp-sim" data-stamp="alerts">SIM</span></div>
+    <div id="alert-list"></div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title">☢ DEFCON Status Scale</div>
+    <div class="defcon-scale" id="defcon-scale"></div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title">📊 Arsenal Size Comparison</div>
+    <div id="wh-chart"></div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title">🧪 Arsenal Development</div>
+    <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Program trajectory by nation (simulated)</div>
+    <div id="dev-list"></div>
+  </div>
+
+  <div class="rp-section">
+    <div class="rp-title">📡 Live Activity Monitor<span class="feed-stamp stamp-sim" data-stamp="activity">SIM</span></div>
+    <div style="font-family:var(--font-mono);font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-2);">Real-time counts · USGS · The Space Devs · CelesTrak</div>
+    <div id="heat-list"></div>
+    <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-faint);margin-top:var(--space-3);">Quakes M4.5+ /24h · strongest mag · upcoming launches · live satellites tracked</div>
+  </div>
+</aside>
+</div>
+
+<script>
+"use strict";
+
+/* ──────────────────────────────────────────────────────────
+   SINGLE SOURCE OF TRUTH
+   Public arsenal estimates (FAS/SIPRI-style). Everything on the
+   page — sidebar, map, arsenal chart, totals — is derived from
+   this one array so the figures can never drift out of sync.
+   ────────────────────────────────────────────────────────── */
+const STATUS_COLORS = {
+  nominal:  "#00ff88",
+  elevated: "#ffaa00",
+  critical: "#ff3333"
+};
+
+const NATIONS = [
+  {key:"usa",        name:"United States", short:"USA",      flag:"🇺🇸", warheads:5550, label:"5,550 warheads",      status:"elevated", dev:"modernizing", lat:39.5, lng:-98.35, mapColor:"#ffaa00", size:18, forces:"Full triad — ICBM · SSBN · bombers"},
+  {key:"russia",     name:"Russia",        short:"Russia",   flag:"🇷🇺", warheads:6257, label:"6,257 warheads",      status:"elevated", dev:"modernizing", lat:60,   lng:90,     mapColor:"#ff8800", size:22, forces:"Full triad — ICBM · SSBN · bombers"},
+  {key:"northkorea", name:"North Korea",   short:"DPRK",     flag:"🇰🇵", warheads:45,   label:"~40–50 warheads",     status:"critical", dev:"expanding",   lat:40,   lng:127,    mapColor:"#ff3333", size:14, forces:"Road-mobile ICBM/MRBM · emerging SLBM"},
+  {key:"china",      name:"China",         short:"China",    flag:"🇨🇳", warheads:350,  label:"~350 warheads",       status:"nominal",  dev:"expanding",   lat:35,   lng:103,    mapColor:"#00ff88", size:12, forces:"Expanding triad — ICBM · SSBN · bombers"},
+  {key:"uk",         name:"United Kingdom",short:"UK",       flag:"🇬🇧", warheads:225,  label:"225 warheads",        status:"nominal",  dev:"growing",     lat:54,   lng:-3,     mapColor:"#00ff88", size:10, forces:"Sea-based only — 4× Vanguard SSBN"},
+  {key:"france",     name:"France",        short:"France",   flag:"🇫🇷", warheads:290,  label:"290 warheads",        status:"nominal",  dev:"stable",      lat:46,   lng:2,      mapColor:"#00ff88", size:10, forces:"SSBN (M51) · air-launched ASMP-A"},
+  {key:"india",      name:"India",         short:"India",    flag:"🇮🇳", warheads:160,  label:"~160 warheads",       status:"nominal",  dev:"growing",     lat:20,   lng:78,     mapColor:"#00ff88", size:9,  forces:"Nascent triad — land · air · sea"},
+  {key:"pakistan",   name:"Pakistan",      short:"Pakistan", flag:"🇵🇰", warheads:165,  label:"~165 warheads",       status:"nominal",  dev:"growing",     lat:30,   lng:69,     mapColor:"#00ff88", size:9,  forces:"Land- & air-launched; no SSBN"},
+  {key:"israel",     name:"Israel",        short:"Israel",   flag:"🇮🇱", warheads:90,   label:"~90 warheads (est.)", status:"nominal",  dev:"stable",      lat:31.5, lng:34.8,   mapColor:"#00ff88", size:8,  forces:"Undeclared — air · land · sea (est.)"}
+];
+
+// Arsenal-development trend per nation — the "nuke development" indicator.
+const PROGRAMS = {
+  expanding:   {sym:"▲▲", text:"EXPANDING",   color:"#ff3333"},
+  growing:     {sym:"▲",  text:"GROWING",     color:"#ffaa00"},
+  modernizing: {sym:"⟳",  text:"MODERNIZING", color:"#00aaff"},
+  stable:      {sym:"▬",  text:"STABLE",      color:"#00a855"}
+};
+
+const MISSILE_SYSTEMS = [
+  {system:"Minuteman III", range:"13,000km", status:"active",   label:"ACTIVE"},
+  {system:"Trident II D5", range:"11,000km", status:"active",   label:"ACTIVE"},
+  {system:"RS-28 Sarmat",  range:"18,000km", status:"elevated", label:"ELEVATED"},
+  {system:"R-36M2",        range:"16,000km", status:"active",   label:"ACTIVE"},
+  {system:"DF-41",         range:"14,000km", status:"standby",  label:"STANDBY"},
+  {system:"Hwasong-17",    range:"15,000km", status:"test",     label:"TEST PREP"},
+  {system:"Agni-V",        range:"5,500km",  status:"standby",  label:"STANDBY"}
+];
+
+// Ballistic-missile submarines (SSBN) — plotted at notional at-sea patrol boxes.
+const SUBMARINES = [
+  {key:"ssbn-pennsylvania", name:"USS Pennsylvania",     cls:"Ohio",   flag:"🇺🇸", slbm:"20× Trident II D5", lat:25,  lng:-160, status:"active",   label:"PATROL"},
+  {key:"ssbn-vanguard",     name:"HMS Vanguard",         cls:"Vanguard",flag:"🇬🇧", slbm:"16× Trident II D5", lat:58,  lng:-20,  status:"active",   label:"PATROL"},
+  {key:"ssbn-triomphant",   name:"Le Triomphant",        cls:"Triomphant",flag:"🇫🇷", slbm:"16× M51",        lat:45,  lng:-10,  status:"active",   label:"PATROL"},
+  {key:"ssbn-dolgorukiy",   name:"Yuri Dolgorukiy",      cls:"Borei",  flag:"🇷🇺", slbm:"16× RSM-56 Bulava", lat:73,  lng:40,   status:"elevated", label:"DEPLOYED"},
+  {key:"ssbn-changzheng",   name:"Changzheng 10",        cls:"Type 094",flag:"🇨🇳", slbm:"12× JL-2 / JL-3",  lat:16,  lng:113,  status:"standby",  label:"STANDBY"}
+];
+
+// Strategic bombers — plotted at home airbases.
+const AIRCRAFT = [
+  {key:"air-b2",    name:"B-2 Spirit",          base:"Whiteman AFB",  flag:"🇺🇸", load:"16× B61/B83",   lat:38.73, lng:-93.55,  status:"active",   label:"ALERT"},
+  {key:"air-b52h",  name:"B-52H Stratofortress",base:"Minot AFB",     flag:"🇺🇸", load:"20× AGM-86",    lat:48.42, lng:-101.36, status:"active",   label:"ALERT"},
+  {key:"air-tu160", name:"Tu-160 Blackjack",    base:"Engels-2",      flag:"🇷🇺", load:"12× Kh-102",    lat:51.48, lng:46.18,   status:"elevated", label:"ELEVATED"},
+  {key:"air-tu95",  name:"Tu-95MS Bear",        base:"Ukrainka",      flag:"🇷🇺", load:"16× Kh-55",     lat:51.17, lng:128.45,  status:"standby",  label:"STANDBY"},
+  {key:"air-h6n",   name:"H-6N",                base:"Neixiang",      flag:"🇨🇳", load:"6× CJ-20A",     lat:33.05, lng:111.85,  status:"standby",  label:"STANDBY"}
+];
+
+// Ground-Based Interceptor (GBI) midcourse-defense sites.
+const GBI_SITES = [
+  {key:"gbi-greely",     name:"Fort Greely",    region:"Alaska, USA",     flag:"🇺🇸", interceptors:40, lat:63.95, lng:-145.73, status:"active", label:"ARMED"},
+  {key:"gbi-vandenberg", name:"Vandenberg SFB", region:"California, USA", flag:"🇺🇸", interceptors:4,  lat:34.73, lng:-120.57, status:"active", label:"ARMED"}
+];
+
+// US ICBM ground bases — the three Minuteman III missile wings.
+const GROUND_BASES = [
+  {key:"base-malmstrom", name:"Malmstrom AFB", flag:"🇺🇸", region:"Montana",      wing:"341st MW · 150× LGM-30G", lat:47.50, lng:-111.18, status:"active", label:"ALERT"},
+  {key:"base-minot-mw",  name:"Minot AFB",     flag:"🇺🇸", region:"N. Dakota",    wing:"91st MW · 150× LGM-30G",  lat:48.10, lng:-101.30, status:"active", label:"ALERT"},
+  {key:"base-warren",    name:"F.E. Warren AFB",flag:"🇺🇸", region:"Wyoming",      wing:"90th MW · 150× LGM-30G",  lat:41.15, lng:-104.87, status:"active", label:"ALERT"}
+];
+
+// Simulated monitoring-satellite constellation. Each satellite rides a sinusoidal
+// ground track; the three tracking birds beam down to every asset in their category
+// (GBI sites, SSBN patrols, ICBM ground bases). tracks:null = wide-area ISR, no beams.
+const SATELLITES = [
+  {key:"sat-gssap", name:"GSSAP-4",     type:"Space Surveillance",     incl:52, node:-110, period:46,  dir: 1, tracks:"gbi",  tracksLabel:"US GBI sites",       glyphColor:"#00ff88", status:"active", label:"TRACKING"},
+  {key:"sat-noss",  name:"NOSS-3 Triad",type:"Ocean Surveillance",     incl:63, node:20,   period:40,  dir: 1, tracks:"sub",  tracksLabel:"SSBN patrols",       glyphColor:"#00aaff", status:"active", label:"TRACKING"},
+  {key:"sat-sbirs", name:"SBIRS GEO-6", type:"Missile Early-Warning",  incl:14, node:-95,  period:120, dir: 1, tracks:"base", tracksLabel:"ICBM ground bases", glyphColor:"#ffae34", status:"active", label:"TRACKING"},
+  {key:"sat-kh11",  name:"KH-11 NRO-21",type:"Imaging Reconnaissance", incl:50, node:150,  period:44,  dir:-1, tracks:null,   tracksLabel:"Wide-area ISR",      glyphColor:"#cfe8ff", status:"active", label:"ONLINE"},
+  {key:"sat-topaz", name:"Topaz-5",     type:"Radar Imaging",          incl:57, node:-40,  period:48,  dir: 1, tracks:null,   tracksLabel:"Wide-area ISR",      glyphColor:"#cfe8ff", status:"active", label:"ONLINE"},
+  {key:"sat-aehf",  name:"AEHF-7",      type:"Secure Comms Relay",     incl:30, node:90,   period:60,  dir:-1, tracks:null,   tracksLabel:"C2 relay",           glyphColor:"#cfe8ff", status:"active", label:"ONLINE"}
+];
+
+// Live air traffic comes from the OpenSky Network ADS-B feed (real flights,
+// public, no key, CORS-enabled). Bounding box covers the continental US,
+// including the Malmstrom / Minot / F.E. Warren ICBM fields already on the map.
+// Ground (road-mobile TELs) and sea (SSBN) movement have NO public real-time
+// source — those platforms are concealed by design — so they are not faked.
+const AIRCRAFT_BOX = {lamin: 24, lomin: -125, lamax: 50, lomax: -66};
+
+// Interactive launch simulation: DPRK ICBM vs. GBI midcourse defense.
+const LAUNCH_SCENARIO = {
+  from:[40, 127],                 // DPRK launch area
+  to:[39.5, -98.35],              // CONUS aimpoint
+  interceptorSite:[63.95, -145.73], // Fort Greely GBI
+  interceptFraction:0.62,         // midcourse intercept point along the arc
+  interceptPk:0.7                 // probability of kill per engagement
+};
+
+const DEFCON_LEVELS = [
+  {num:1, color:"#ff0000", status:"COCKED PISTOL", name:"MAXIMUM FORCE READINESS", desc:"Nuclear war imminent or ongoing"},
+  {num:2, color:"#ff4400", status:"FAST PACE",     name:"ARMED FORCES READY",      desc:"Armed attack probable / imminent"},
+  {num:3, color:"#ff3333", status:"ROUND HOUSE",   name:"INCREASED READINESS",     desc:"Air forces ready within 15 minutes"},
+  {num:4, color:"#ffaa00", status:"DOUBLE TAKE",   name:"INCREASED INTELLIGENCE",  desc:"Above-normal readiness"},
+  {num:5, color:"#00ff88", status:"FADE OUT",      name:"NORMAL PEACETIME",        desc:"Lowest state of readiness"}
+];
+let activeDefcon = 3;
+
+const ALERTS = [
+  {title:"DPRK TEL Movement — Hwasong-17",        meta:"02:14 UTC · Sanumdong, DPRK · CRITICAL", sev:"critical"},
+  {title:"Russia SSBN Barents Sea Deployment",    meta:"01:58 UTC · Barents Sea · HIGH",         sev:"high"},
+  {title:"DEFCON 3 — US STRATCOM Posture Change", meta:"01:30 UTC · Global · HIGH",              sev:"high"},
+  {title:"RF Jamming Near Minuteman Silos",       meta:"00:52 UTC · Montana, USA · MEDIUM",      sev:"medium"},
+  {title:"China DF-41 Drill — Training Activity", meta:"00:45 UTC · Xinjiang, China · LOW",      sev:"low"}
+];
+
+const LAUNCH_WINDOWS = [
+  {tone:"danger", window:"IMMEDIATE / 0–2 HRS", event:"🇰🇵 DPRK Hwasong-17 — Possible Launch Window", detail:"TEL repositioning complete. Weather window optimal. High-confidence estimated timeframe."},
+  {tone:"warn",   window:"6–24 HOURS",          event:"🇷🇺 Russia Sineva SLBM — Exercise Fire",        detail:"Scheduled from Northern Fleet SSBN. Inert warhead. Range Kura, Kamchatka."},
+  {tone:"info",   window:"3–7 DAYS",            event:"🇺🇸 US Minuteman III — Operational Test",       detail:"Vandenberg SFB Launch Facility 10. Unarmed ICBM OT&E as per routine schedule."},
+  {tone:"info",   window:"14–30 DAYS",          event:"🇮🇳 India Agni-V — DRDO Final Test Series",     detail:"APJ Abdul Kalam Island range. Series III MIRV qualification test. No hostile intent."},
+  {tone:"ok",     window:"60–90 DAYS",          event:"🇫🇷 France M51.3 — Confirmation Test",          detail:"Landes test center. Submarine-launched ballistic missile upgrade validation."}
+];
+
+const INITIAL_FEED = [
+  {time:"02:14 UTC", title:"DPRK Transporter Erector Movement", badge:"alert",    desc:"Satellite imagery confirms 3x TEL vehicles relocating from Sanumdong facility. Possible prelaunch repositioning."},
+  {time:"01:58 UTC", title:"Russia Northern Fleet Exercise",    badge:"movement", desc:"Borei-class SSBN Delta-IV conducting exercises in Barents Sea. SLBM RSM-56 Bulava believed loaded."},
+  {time:"01:30 UTC", title:"US STRATCOM Readiness Change",      badge:"movement", desc:"USSTRATCOM raises alert posture to DEFCON 3. All Minuteman III ICBMs now on 24/7 alert rotation."},
+  {time:"00:45 UTC", title:"Chinese DF-41 Test Confirmed",      badge:"test",     desc:"PLA Rocket Force conducted successful inert reentry vehicle test over Gobi Desert range. No payload."},
+  {time:"00:12 UTC", title:"UK Trident Patrol Departure",       badge:"nominal",  desc:"SSBN HMS Vanguard departed HMNB Clyde. Continuous at-sea deterrent posture maintained."}
+];
+
+const BLAST_ZONES = [
+  {lat:39.5, lng:-98.35, radius:5000000, color:"#ffaa00"},
+  {lat:60,   lng:90,     radius:6000000, color:"#ff8800"},
+  {lat:40,   lng:127,    radius:1500000, color:"#ff3333"}
+];
+
+const MISSILE_ARCS = [
+  {from:[40,127], to:[37,-122], color:"#ff3333"},
+  {from:[40,127], to:[38,-77],  color:"#ff6600"}
+];
+
+/* ──────────────── small DOM helpers ──────────────── */
+const $ = (sel) => document.querySelector(sel);
+function el(tag, className, html){
+  const node = document.createElement(tag);
+  if(className) node.className = className;
+  if(html != null) node.innerHTML = html;
+  return node;
+}
+// Escape any string before it touches innerHTML.
+function esc(str){
+  return String(str).replace(/[&<>"']/g, (c) => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
+  ));
+}
+
+/* ──────────────── CLOCK ────────────────
+   Real local time, ticking every second, labelled with the viewer's own
+   timezone (e.g. EDT, GMT+1) so it matches their wall clock. */
+function updateClock(){
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  let tz = "LOCAL";
+  try{
+    tz = new Intl.DateTimeFormat(undefined, {timeZoneName: "short"})
+      .formatToParts(now).find((p) => p.type === "timeZoneName")?.value || "LOCAL";
+  }catch(e){ /* Intl unavailable — keep LOCAL */ }
+  $("#clock").textContent =
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${tz}`;
+}
+
+/* ──────────────── SIDEBAR: NATIONS ──────────────── */
+function renderNations(){
+  const list = $("#nation-list");
+  NATIONS.forEach((n) => {
+    const card = el("button", `nation-card ${n.status}`);
+    card.type = "button";
+    card.dataset.nation = n.key;
+    card.setAttribute("aria-pressed", "false");
+    const p = PROGRAMS[n.dev];
+    card.innerHTML = `
+      <span class="flag-box">${n.flag}</span>
+      <span class="nation-info">
+        <span class="nation-name">${esc(n.name)}</span>
+        <span class="nation-warheads">${esc(n.label)}<span class="nation-dev" style="color:${p.color};" title="Arsenal ${esc(p.text.toLowerCase())}">${p.sym} ${esc(p.text)}</span></span>
+      </span>
+      <span class="nation-status">
+        <span class="status-dot dot-${n.status}"></span>
+        <span class="status-text status-${n.status}">${n.status.toUpperCase()}</span>
+      </span>`;
+    card.addEventListener("click", () => selectNation(n.key));
+    list.appendChild(card);
+  });
+}
+
+function renderMissiles(){
+  const tbody = $("#missile-tbody");
+  MISSILE_SYSTEMS.forEach((m) => {
+    const row = el("tr");
+    row.innerHTML = `
+      <td class="td-system">${esc(m.system)}</td>
+      <td>${esc(m.range)}</td>
+      <td class="td-status-${m.status}">${esc(m.label)}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+// Generic 3-column inventory renderer for platform tables. Each row is a button
+// that flies the map to — and opens the popup for — its matching marker.
+function renderInventory(selector, rows, cols){
+  const tbody = $(selector);
+  rows.forEach((r) => {
+    const tr = el("tr");
+    tr.dataset.focus = r.key;
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", `Locate ${r.name} on map`);
+    tr.innerHTML = `
+      <td class="td-system">${cols[0](r)}</td>
+      <td>${esc(cols[1](r))}</td>
+      <td class="td-status-${r.status}">${esc(r.label)}</td>`;
+    tr.addEventListener("click", () => focusPlatform(r.key));
+    tr.addEventListener("keydown", (e) => {
+      if(e.key === "Enter" || e.key === " "){ e.preventDefault(); focusPlatform(r.key); }
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+/* ──────────────── RIGHT PANEL ──────────────── */
+function renderAlerts(items){
+  const list = $("#alert-list");
+  list.replaceChildren();
+  (items || ALERTS).forEach((a) => {
+    const item = el("div", "alert-item");
+    item.innerHTML = `
+      <div class="alert-severity sev-${a.sev}"></div>
+      <div class="alert-content">
+        <div class="alert-title">${esc(a.title)}</div>
+        <div class="alert-meta">${esc(a.meta)}</div>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+// Real active hazard alerts from the National Weather Service (public,
+// CORS-enabled, no key). Same federal feed used by FEMA. Replaces the
+// (invented) nuclear-posture items while preserving the panel's visual
+// language (severity bar + title + meta). Falls back to the simulated
+// ALERTS when offline / blocked.
+const NWS_SEV = {
+  Extreme:  "critical",
+  Severe:   "high",
+  Moderate: "medium",
+  Minor:    "low",
+  Unknown:  "low"
+};
+async function loadNwsAlerts(){
+  const URL_NWS = "https://api.weather.gov/alerts/active?status=actual&message_type=alert,update";
+  try{
+    const r = await fetch(URL_NWS, {cache: "no-store", headers: {"Accept": "application/geo+json"}});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const features = (data.features || []);
+    if(!features.length) return;
+    // Severity-rank then time-newest first, cap to the 6 most pressing.
+    const rank = {Extreme: 0, Severe: 1, Moderate: 2, Minor: 3, Unknown: 4};
+    features.sort((a, b) => {
+      const ra = rank[a.properties.severity] ?? 5, rb = rank[b.properties.severity] ?? 5;
+      if(ra !== rb) return ra - rb;
+      return new Date(b.properties.sent) - new Date(a.properties.sent);
+    });
+    const items = features.slice(0, 6).map((f) => {
+      const p = f.properties;
+      const area = (p.areaDesc || "").split(";")[0].trim() || "—";
+      const when = p.sent ? relTime(new Date(p.sent)) : "";
+      return {
+        title: p.event || "Alert",
+        meta: `${when} · ${area} · ${(p.severity || "UNKNOWN").toUpperCase()} · NWS`,
+        sev: NWS_SEV[p.severity] || "low"
+      };
+    });
+    renderAlerts(items);
+    feedStamp("alerts");
+  }catch(e){
+    console.warn("NWS alerts unavailable; keeping simulated alerts:", e.message);
+  }
+}
+
+function renderDefcon(){
+  const scale = $("#defcon-scale");
+  scale.replaceChildren();
+  DEFCON_LEVELS.forEach((d) => {
+    const active = d.num === activeDefcon;
+    const row = el("button", `defcon-row${active ? " active-level" : " defcon-dim"}`);
+    row.type = "button";
+    row.setAttribute("aria-pressed", String(active));
+    row.setAttribute("aria-label", `Set DEFCON ${d.num} — ${d.name}`);
+    const pipStyle = active
+      ? `background:${d.color};box-shadow:0 0 8px ${d.color};animation:blink 1s infinite;`
+      : `background:${d.color};`;
+    row.innerHTML = `
+      <div class="defcon-num" style="color:${d.color};">${d.num}</div>
+      <div class="defcon-info">
+        <div class="defcon-name">${esc(d.name)}</div>
+        <div class="defcon-desc">${esc(d.desc)}</div>
+      </div>
+      <div class="defcon-pip" style="${pipStyle}"></div>`;
+    row.addEventListener("click", () => setActiveDefcon(d.num));
+    scale.appendChild(row);
+  });
+}
+
+// Apply a DEFCON level across the dashboard: header badge + the scale highlight.
+function setActiveDefcon(num){
+  activeDefcon = num;
+  const d = DEFCON_LEVELS.find((x) => x.num === num);
+  const numEl = $("#defcon-num");
+  numEl.textContent = d.num;
+  numEl.style.color = d.color;
+  numEl.style.textShadow = `0 0 12px ${d.color}`;
+  const sub = $("#defcon-status-text");
+  sub.textContent = d.status;
+  sub.style.color = d.color;
+  const badge = document.querySelector(".defcon-badge");
+  badge.style.borderColor = d.color;
+  badge.style.background = `${d.color}22`;
+  renderDefcon();
+}
+
+function renderArsenalChart(){
+  const chart = $("#wh-chart");
+  const sorted = [...NATIONS].sort((a, b) => b.warheads - a.warheads);
+  const max = sorted[0].warheads;
+  const barColor = (n) => {
+    if(n.status === "critical") return "linear-gradient(90deg,#ff3333,#ff6666)";
+    if(n.status === "elevated") return "linear-gradient(90deg,#ffaa00,#ffcc44)";
+    if(n.warheads >= 200)       return "linear-gradient(90deg,#00aaff,#44ccff)";
+    if(n.warheads >= 100)       return "linear-gradient(90deg,#aaaaaa,#cccccc)";
+    return "linear-gradient(90deg,#888888,#aaaaaa)";
+  };
+  sorted.forEach((n) => {
+    const pct = Math.max((n.warheads / max) * 100, 0.8);
+    const blink = n.status === "critical" ? "animation:blink 2s infinite;" : "";
+    const row = el("div", "wh-row");
+    row.innerHTML = `
+      <span class="wh-flag">${n.flag}</span>
+      <span class="wh-name">${esc(n.short)}</span>
+      <div class="wh-bar-wrap"><div class="wh-bar" style="width:${pct.toFixed(1)}%;background:${barColor(n)};${blink}"></div></div>
+      <span class="wh-count">${esc(n.label.includes("~") ? "~" + n.warheads : n.warheads.toLocaleString())}</span>`;
+    chart.appendChild(row);
+  });
+}
+
+// "Nuke development" indicator: each nation's program trajectory, worst first.
+function renderDevelopment(){
+  const list = $("#dev-list");
+  const order = {expanding: 0, growing: 1, modernizing: 2, stable: 3};
+  const sorted = [...NATIONS].sort((a, b) => order[a.dev] - order[b.dev]);
+  sorted.forEach((n) => {
+    const p = PROGRAMS[n.dev];
+    const row = el("div", "dev-row");
+    row.innerHTML = `
+      <span class="dev-flag">${n.flag}</span>
+      <span class="dev-name">${esc(n.short)}</span>
+      <span class="dev-sym" style="color:${p.color};">${p.sym}</span>
+      <span class="dev-tag" style="color:${p.color};">${esc(p.text)}</span>`;
+    list.appendChild(row);
+  });
+}
+
+/* ──────────────── LIVE ACTIVITY MONITOR ────────────────
+   Real counts aggregated from the live feeds (USGS seismic, The Space Devs
+   launches, CelesTrak satellites). Each source updates its field and re-renders;
+   missing sources show "—" rather than a fabricated value. */
+const activity = {quakes: null, strongestMag: null, launches: null, satellites: null};
+
+function renderActivity(){
+  const list = $("#heat-list");
+  if(!list) return;
+  const rows = [
+    {name: "Quakes 24h", val: activity.quakes,       max: 60, fmt: (v) => String(v)},
+    {name: "Top mag",    val: activity.strongestMag, max: 9,  fmt: (v) => v.toFixed(1)},
+    {name: "Launches",   val: activity.launches,     max: 10, fmt: (v) => String(v)},
+    {name: "Live sats",  val: activity.satellites,   max: 24, fmt: (v) => String(v)}
+  ];
+  list.replaceChildren();
+  rows.forEach((r, i) => {
+    const has = r.val != null;
+    const pct = has ? Math.max(3, Math.min(100, (r.val / r.max) * 100)) : 0;
+    const row = el("div", "wh-row");
+    if(i < rows.length - 1) row.style.marginBottom = "var(--space-3)";
+    row.innerHTML = `
+      <span class="wh-name" style="width:80px;">${esc(r.name)}</span>
+      <div class="wh-bar-wrap" style="height:10px;"><div class="wh-bar" style="width:${pct}%;background:linear-gradient(90deg,#00aaff,#00ff88);"></div></div>
+      <span class="wh-count">${has ? esc(r.fmt(r.val)) : "—"}</span>`;
+    list.appendChild(row);
+  });
+}
+
+// Synthetic launch schedule — immediate paint + offline fallback.
+function renderLaunchWindows(){
+  const timeline = $("#launch-timeline");
+  timeline.replaceChildren();
+  LAUNCH_WINDOWS.forEach((l) => {
+    const item = el("div", `lt-item lt-${l.tone}`);
+    item.innerHTML = `
+      <div class="lt-window">${esc(l.window)}</div>
+      <div class="lt-event">${esc(l.event)}</div>
+      <div class="lt-detail">${esc(l.detail)}</div>`;
+    timeline.appendChild(item);
+  });
+}
+
+function fmtCountdown(ms){
+  if(ms <= 0) return "T-00:00:00";
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const pad = (n) => String(n).padStart(2, "0");
+  const hms = `${pad(Math.floor(s % 86400 / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+  return d > 0 ? `T-${d}d ${hms}` : `T-${hms}`;
+}
+
+// Real upcoming rocket launches from The Space Devs Launch Library 2 (public,
+// CORS-enabled, no key). Replaces the synthetic schedule and drives a live
+// per-second T- countdown to the next launch.
+let nextLaunchNet = null;
+async function loadLaunchWindows(){
+  const URL_LL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=6&hide_recent_previous=true";
+  try{
+    const r = await fetch(URL_LL, {cache: "no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const results = (data.results || []).filter((x) => x.net);
+    if(!results.length) return;
+    const timeline = $("#launch-timeline");
+    timeline.replaceChildren();
+
+    const cd = el("div", "lt-item lt-danger");
+    cd.innerHTML = `<div class="lt-window">NEXT LAUNCH</div><div class="lt-event" id="next-launch-cd">T-—</div><div class="lt-detail" id="next-launch-name"></div>`;
+    timeline.appendChild(cd);
+    nextLaunchNet = new Date(results[0].net).getTime();
+    $("#next-launch-name").textContent = results[0].name || "";
+
+    results.forEach((x) => {
+      const net = new Date(x.net);
+      const hrs = (net.getTime() - Date.now()) / 3600000;
+      const tone = hrs < 24 ? "warn" : hrs < 24 * 7 ? "info" : "ok";
+      const prov = (x.launch_service_provider && x.launch_service_provider.name) || "";
+      const loc = (x.pad && x.pad.location && x.pad.location.name) || "";
+      const item = el("div", `lt-item lt-${tone}`);
+      item.innerHTML = `
+        <div class="lt-window">${esc(net.toUTCString().slice(5, 22))} UTC</div>
+        <div class="lt-event">🚀 ${esc(x.name || "Launch")}</div>
+        <div class="lt-detail">${esc([prov, loc].filter(Boolean).join(" · "))}</div>`;
+      timeline.appendChild(item);
+    });
+
+    activity.launches = results.length;
+    renderActivity();
+    feedStamp("launches");
+    feedStamp("activity");
+  }catch(e){
+    console.warn("Launch Library unavailable; keeping simulated launch windows:", e.message);
+  }
+}
+
+/* ──────────────── INTEL FEED ──────────────── */
+function feedItemNode({time, title, badge, desc}){
+  const node = el("div", "timeline-item");
+  node.innerHTML = `
+    <div class="timeline-time">${esc(time)}</div>
+    <div class="timeline-content">
+      <div class="timeline-title">${esc(title)}<span class="badge badge-${badge}">${esc(badge.toUpperCase())}</span></div>
+      <div class="timeline-desc">${esc(desc)}</div>
+    </div>`;
+  return node;
+}
+
+function renderFeed(){
+  const feed = $("#intel-feed");
+  INITIAL_FEED.forEach((item) => feed.appendChild(feedItemNode(item)));
+}
+
+// Relative time label for a Date — "3m ago" / "2h ago" / "5d ago".
+function relTime(date){
+  const sec = Math.max(0, (Date.now() - date.getTime()) / 1000);
+  if(sec < 60)    return `${Math.floor(sec)}s ago`;
+  if(sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
+  if(sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
+/* ──────────────── DATA-AGE STAMPS ────────────────
+   Every fetch-driven panel carries a [data-stamp] chip. A loader calls
+   feedStamp(key) on success (or feedStamp(key,"limited") on a rate limit);
+   until then the chip shows its fallback label (SIM / OFFLINE), so a viewer
+   can always tell live data from fallback data — and how old it is. */
+const FEED_STATE = {};
+function feedStamp(key, state = "live"){
+  FEED_STATE[key] = {t: Date.now(), state};
+  renderFeedStamps();
+}
+function renderFeedStamps(){
+  document.querySelectorAll("[data-stamp]").forEach((node) => {
+    const s = FEED_STATE[node.dataset.stamp];
+    if(!s){
+      node.textContent = node.dataset.fallback || "SIM";
+      node.className = "feed-stamp stamp-sim";
+    }else if(s.state === "limited"){
+      node.textContent = "RATE-LIMITED";
+      node.className = "feed-stamp stamp-warn";
+    }else{
+      node.textContent = `LIVE · ${relTime(new Date(s.t))}`;
+      node.className = "feed-stamp stamp-live";
+    }
+  });
+}
+
+// Real-time seismic activity from USGS (public, CORS-enabled, no key). Each
+// significant earthquake is shown like an intel item. Nuclear tests register
+// seismically too, which makes this directly relevant to the dashboard's theme.
+// If the fetch fails (offline / blocked), the simulated INITIAL_FEED stays.
+async function loadSeismicFeed(){
+  const URL_FEED = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson";
+  try{
+    const r = await fetch(URL_FEED, {cache: "no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const all = data.features || [];
+    const events = all.slice(0, 8);
+    if(!events.length) return;
+
+    // Feed real counts into the Live Activity Monitor.
+    activity.quakes = all.length;
+    activity.strongestMag = all.reduce((mx, f) => Math.max(mx, (f.properties && f.properties.mag) || 0), 0);
+    renderActivity();
+    feedStamp("seismic");
+    feedStamp("activity");
+
+    const feed = $("#intel-feed");
+    feed.replaceChildren();
+    events.forEach((f) => {
+      const p = f.properties || {};
+      const ts = new Date(p.time);
+      const mag = (typeof p.mag === "number" ? p.mag : 0);
+      const place = p.place || "Unknown region";
+      const depth = (f.geometry && f.geometry.coordinates && f.geometry.coordinates[2]) || 0;
+      const badge = mag >= 6 ? "alert" : mag >= 5 ? "movement" : "test";
+      feed.appendChild(feedItemNode({
+        time: relTime(ts),
+        title: `M${mag.toFixed(1)} — ${place}`,
+        badge,
+        desc: `Depth ${depth.toFixed(0)} km · ${p.type || "earthquake"} · USGS · ${ts.toISOString().slice(11, 16)} UTC`
+      }));
+    });
+  }catch(e){
+    console.warn("USGS seismic feed unavailable; keeping simulated feed:", e.message);
+  }
+}
+
+/* ──────────────── KPI COUNTERS ──────────────── */
+function animateCounter(elNode, target){
+  const start = parseInt(elNode.textContent.replace(/[^0-9]/g, ""), 10) || 0;
+  const duration = 1200;
+  const startTime = performance.now();
+  (function tick(now){
+    const progress = Math.min((now - startTime) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    elNode.textContent = Math.round(start + (target - start) * ease).toLocaleString();
+    if(progress < 1) requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+function totals(){
+  const totalWarheads = NATIONS.reduce((sum, n) => sum + n.warheads, 0);
+  const threats = NATIONS.filter((n) => n.status === "critical").length;
+  // Live-aircraft count is filled in by loadAircraft(); start at 0.
+  return {totalWarheads, threats};
+}
+
+/* ──────────────── LEAFLET MAP ──────────────── */
+let map;
+const markers = {};
+const platformMarkers = {};
+
+function nationMarkerIcon(n){
+  const pulse = n.status === "critical";
+  return L.divIcon({
+    className: "",
+    iconSize: [n.size * 2, n.size * 2],
+    iconAnchor: [n.size, n.size],
+    html: `
+      <div class="nuke-marker ${pulse ? "nuke-marker--pulse" : ""}"
+           style="width:${n.size * 2}px;height:${n.size * 2}px;
+           background:radial-gradient(circle,${n.mapColor}88 0%,${n.mapColor}22 60%,transparent 100%);">
+        <div class="nuke-marker__core"
+             style="width:${n.size}px;height:${n.size}px;background:${n.mapColor};box-shadow:0 0 ${n.size}px ${n.mapColor};"></div>
+      </div>`
+  });
+}
+
+function nationPopupHtml(n){
+  return `
+    <div style="background:#0d1318;color:#d0e8d8;padding:12px;border-radius:6px;min-width:180px;font-family:'Share Tech Mono',monospace;font-size:12px;border:1px solid ${n.mapColor}44;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:${n.mapColor};margin-bottom:6px;">${esc(n.name)}</div>
+      <div>Warheads: <span style="color:${n.mapColor};">${esc(n.label)}</span></div>
+      <div>Status: <span style="color:${STATUS_COLORS[n.status]};text-transform:uppercase;">${n.status}</span></div>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid ${n.mapColor}33;color:#6b8a78;">${esc(n.forces)}</div>
+    </div>`;
+}
+
+// Glyph marker shared by submarines / bombers / GBI sites.
+function platformIcon(glyph, color, size){
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div class="platform-marker" style="width:${size}px;height:${size}px;background:${color}22;border:1px solid ${color};box-shadow:0 0 8px ${color}66;color:${color};">${glyph}</div>`
+  });
+}
+
+// `lines` are strings, except an item shaped `{imagery:[lat,lng]}` becomes
+// a "📷 Satellite view" button that flies + switches on the imagery basemap.
+function platformPopupHtml(title, color, lines){
+  const body = lines.map((l) => {
+    if(l && typeof l === "object" && Array.isArray(l.imagery)){
+      const [lat, lng] = l.imagery;
+      return `<div style="margin-top:6px;"><button type="button" onclick="zoomImagery(${lat},${lng},14)" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#cfe8ff;background:rgba(59,130,246,0.18);border:1px solid #3b82f6;border-radius:4px;padding:3px 8px;cursor:pointer;">📷 Satellite view</button></div>`;
+    }
+    return `<div>${esc(l)}</div>`;
+  }).join("");
+  return `
+    <div style="background:#0d1318;color:#d0e8d8;padding:12px;border-radius:6px;min-width:180px;font-family:'Share Tech Mono',monospace;font-size:12px;border:1px solid ${color}44;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:${color};margin-bottom:6px;">${esc(title)}</div>
+      ${body}
+    </div>`;
+}
+
+function addPlatformLayers(){
+  SUBMARINES.forEach((s) => {
+    platformMarkers[s.key] = L.marker([s.lat, s.lng], {icon: platformIcon("◆", "#00aaff", 22), title: s.name})
+      .bindPopup(platformPopupHtml(`${s.flag} ${s.name}`, "#00aaff",
+        [`Class: ${s.cls}`, `Armament: ${s.slbm}`, `Status: ${s.label}`]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  AIRCRAFT.forEach((a) => {
+    platformMarkers[a.key] = L.marker([a.lat, a.lng], {icon: platformIcon("▲", "#b07bff", 22), title: a.name})
+      .bindPopup(platformPopupHtml(`${a.flag} ${a.name}`, "#b07bff",
+        [`Base: ${a.base}`, `Armament: ${a.load}`, `Status: ${a.label}`, {imagery: [a.lat, a.lng]}]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  GBI_SITES.forEach((g) => {
+    L.circle([g.lat, g.lng], {radius: 2500000, color: "#00ff88", weight: 1, opacity: 0.25, fillColor: "#00ff88", fillOpacity: 0.03, interactive: false}).addTo(map);
+    platformMarkers[g.key] = L.marker([g.lat, g.lng], {icon: platformIcon("✛", "#00ff88", 22), title: g.name})
+      .bindPopup(platformPopupHtml(`${g.flag} ${g.name}`, "#00ff88",
+        [g.region, `Interceptors: ${g.interceptors} GBI`, `Status: ${g.label}`, {imagery: [g.lat, g.lng]}]), {className: "custom-popup"})
+      .addTo(map);
+  });
+
+  GROUND_BASES.forEach((b) => {
+    platformMarkers[b.key] = L.marker([b.lat, b.lng], {icon: platformIcon("◎", "#ffae34", 20), title: b.name})
+      .bindPopup(platformPopupHtml(`${b.flag} ${b.name}`, "#ffae34",
+        [b.region, b.wing, `Status: ${b.label}`, {imagery: [b.lat, b.lng]}]), {className: "custom-popup"})
+      .addTo(map);
+  });
+}
+
+// Fly the map to a platform marker and highlight its inventory row.
+function focusPlatform(key){
+  // Satellites live on a toggleable layer — switch it on before focusing one.
+  if(key.startsWith("sat-") && !satLayer.active) setSatellites(true);
+  const marker = platformMarkers[key];
+  if(!marker || !map) return;
+  map.flyTo(marker.getLatLng(), 4, {duration: 0.8});
+  marker.openPopup();
+  document.querySelectorAll(".tracker-table tbody tr.row-active")
+    .forEach((row) => row.classList.remove("row-active"));
+  document.querySelector(`.tracker-table tbody tr[data-focus="${key}"]`)?.classList.add("row-active");
+}
+
+/* ─── SATELLITE IMAGERY BASEMAP ───
+   On-demand Esri World Imagery tile layer over the vector basemap. Free,
+   no key, CORS-enabled; lets a viewer zoom in on any facility to see real
+   satellite imagery. Vector world stays below as the offline fallback. */
+let imageryLayer = null;
+let imageryOn = false;
+function setImagery(on){
+  if(!map) return;
+  if(!imageryLayer){
+    imageryLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {maxZoom: 18, opacity: 0.95, attribution: "Imagery: Esri, Maxar, Earthstar Geographics, USDA, USGS"}
+    );
+  }
+  imageryOn = !!on;
+  const btn = $("#imagery-btn");
+  if(btn){
+    btn.setAttribute("aria-pressed", String(on));
+    btn.textContent = `🌍 Imagery · ${on ? "ON" : "OFF"}`;
+    btn.classList.toggle("off", !on);
+  }
+  if(on) imageryLayer.addTo(map);
+  else map.removeLayer(imageryLayer);
+}
+
+// Fly to a coordinate, enable imagery, and zoom in to inspect a site.
+function zoomImagery(lat, lng, zoom = 14){
+  if(!map) return;
+  setImagery(true);
+  map.flyTo([lat, lng], zoom, {duration: 1.0});
+}
+window.zoomImagery = zoomImagery;   // popups call it via inline onclick
+
+/* ──────────────── ANIMATED TRACKING LAYERS ────────────────
+   Satellites and mobile forces share one lifecycle: a Leaflet layer group,
+   a ~30fps animation loop, reduced-motion handling, and a toggle button.
+   Each layer only supplies how it's built and how it advances per frame. */
+function makeAnimatedLayer({btnSelector, label, build, update}){
+  const layer = {active: false, group: null, _raf: null, _start: 0, _last: 0};
+  layer.build = () => {
+    if(!layer.group){ layer.group = L.layerGroup(); build(layer.group); }
+    return layer.group;
+  };
+  function loop(now){
+    if(!layer.active) return;
+    if(now - layer._last > 33){ update((now - layer._start) / 1000); layer._last = now; }
+    layer._raf = requestAnimationFrame(loop);
+  }
+  layer.set = (on) => {
+    if(!map) return;
+    layer.build();
+    layer.active = on;
+    const btn = btnSelector && $(btnSelector);
+    if(btn){
+      btn.setAttribute("aria-pressed", String(on));
+      btn.textContent = label(on);
+      btn.classList.toggle("off", !on);
+    }
+    if(on){
+      layer.group.addTo(map);
+      const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+      if(reduced){ update(0); }              // static snapshot, no animation
+      else{ layer._start = performance.now(); layer._last = 0; layer._raf = requestAnimationFrame(loop); }
+    }else{
+      if(layer._raf) cancelAnimationFrame(layer._raf);
+      layer._raf = null;
+      map.removeLayer(layer.group);
+    }
+  };
+  return layer;
+}
+
+/* ── Satellites: sinusoidal ground tracks that beam down to tracked assets ── */
+// Real navigation constellations of the three principal nuclear powers, pulled
+// live from CelesTrak as TLEs and propagated with SGP4 (satellite.js). If the
+// fetch or library is unavailable, we fall back to the synthetic SATELLITES.
+const REAL_SAT_GROUPS = [
+  {group: "gps-ops", cc: "USA", color: "#00aaff", cap: 6, label: "GPS · USA"},
+  {group: "glo-ops", cc: "RUS", color: "#ff8800", cap: 6, label: "GLONASS · RUS"},
+  {group: "beidou",  cc: "CHN", color: "#ff3333", cap: 6, label: "BeiDou · CHN"}
+];
+let satReal = false;        // true once live TLEs are loaded
+const satItems = [];        // unified render list: {key,name,color,glabel, satrec? | sat?}
+
+// Synthetic fallback position (sinusoidal ground track) for offline use.
+function satPosition(sat, tSec){
+  let lng = sat.node + sat.dir * (tSec / sat.period) * 360;
+  lng = ((lng + 180) % 360 + 360) % 360 - 180;
+  const lat = Math.max(-80, Math.min(80, sat.incl * Math.sin((lng - sat.node) * Math.PI / 180)));
+  return [lat, lng];
+}
+
+function parseTLE(text){
+  const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim().length);
+  const out = [];
+  for(let i = 0; i + 2 < lines.length + 1 && i + 2 <= lines.length - 1; i += 3){
+    const name = lines[i].trim(), l1 = lines[i + 1], l2 = lines[i + 2];
+    if(l1[0] === "1" && l2[0] === "2") out.push({name, l1, l2});
+  }
+  return out;
+}
+
+async function fetchTLEGroup(g){
+  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${g.group}&FORMAT=tle`;
+  const r = await fetch(url, {cache: "no-store"});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return parseTLE(await r.text()).slice(0, g.cap)
+    .map((t) => ({...t, color: g.color, glabel: g.label}));
+}
+
+// Sub-satellite point (lat/lng) + altitude from a satrec at a given time.
+function realSatPosition(satrec, when){
+  const pv = satellite.propagate(satrec, when);
+  if(!pv || !pv.position) return null;
+  const gd = satellite.eciToGeodetic(pv.position, satellite.gstime(when));
+  return {lat: satellite.degreesLat(gd.latitude), lng: satellite.degreesLong(gd.longitude), altKm: gd.height};
+}
+
+function itemPosition(it, tSec){
+  if(satReal) return realSatPosition(it.satrec, new Date());
+  const [lat, lng] = satPosition(it.sat, tSec);
+  return {lat, lng};
+}
+
+function satPopupHtml(it){
+  if(satReal && it.satrec){
+    const p = realSatPosition(it.satrec, new Date());
+    return platformPopupHtml(`✦ ${it.name}`, it.color, [it.glabel,
+      p ? `Altitude: ${p.altKm.toFixed(0)} km` : "—",
+      p ? `Lat ${p.lat.toFixed(1)}°, Lng ${p.lng.toFixed(1)}°` : "",
+      "Source: CelesTrak TLE · live"].filter(Boolean));
+  }
+  return platformPopupHtml(`✦ ${it.name}`, it.color, [it.glabel || "Monitoring", "Status: SIMULATED"]);
+}
+
+const satLayer = makeAnimatedLayer({
+  btnSelector: "#sat-btn",
+  label: (on) => `✦ Sat Track · ${on ? "ON" : "OFF"}`,
+  build(group){
+    satItems.forEach((it) => {
+      const p = itemPosition(it, 0);
+      if(!p) return;
+      if(!satReal){            // draw the synthetic ground track behind the dot
+        const track = [];
+        for(let lng = -180; lng <= 180; lng += 4){
+          track.push([Math.max(-80, Math.min(80, it.sat.incl * Math.sin((lng - it.sat.node) * Math.PI / 180))), lng]);
+        }
+        L.polyline(track, {color: it.color, weight: 0.6, opacity: 0.16, dashArray: "3,7", interactive: false}).addTo(group);
+      }
+      const marker = L.marker([p.lat, p.lng], {icon: platformIcon("✦", it.color, 16), title: it.name})
+        .bindPopup(satPopupHtml(it), {className: "custom-popup"});
+      marker.on("popupopen", () => marker.setPopupContent(satPopupHtml(it)));
+      group.addLayer(marker);
+      platformMarkers[it.key] = marker;
+      it.marker = marker;
+    });
+  },
+  update(tSec){
+    satItems.forEach((it) => {
+      const p = itemPosition(it, tSec);
+      if(p && it.marker) it.marker.setLatLng([p.lat, p.lng]);
+    });
+  }
+});
+
+// Sidebar list + KPI, sourced from whichever satellite set is active.
+function renderSatSidebar(){
+  const tbody = $("#sat-tbody");
+  if(!tbody) return;
+  tbody.replaceChildren();
+  const rows = satItems.map((it) => ({
+    key: it.key, name: it.name, status: "active",
+    label: satReal ? "LIVE" : "SIM", col2: it.glabel || ""
+  }));
+  renderInventory("#sat-tbody", rows, [(r) => `✦ ${esc(r.name)}`, (r) => r.col2]);
+}
+
+// Load real TLEs (with synthetic fallback), then build + show the layer.
+async function initSatellites(){
+  const loaded = [];
+  if(window.satellite){
+    try{
+      const groups = await Promise.all(REAL_SAT_GROUPS.map(fetchTLEGroup));
+      groups.flat().forEach((t, i) => {
+        try{ loaded.push({key: `sat-r${i}`, name: t.name, color: t.color, glabel: t.glabel, satrec: satellite.twoline2satrec(t.l1, t.l2)}); }
+        catch(e){ /* skip malformed TLE */ }
+      });
+    }catch(e){ console.warn("CelesTrak TLE unavailable; using synthetic satellites:", e.message); }
+  }
+  satItems.length = 0;
+  if(loaded.length){
+    satReal = true;
+    satItems.push(...loaded);
+  }else{
+    satReal = false;
+    SATELLITES.forEach((s) => satItems.push({key: s.key, name: s.name, color: s.glyphColor, glabel: s.tracksLabel, sat: s}));
+  }
+  setSatellites(true);
+  renderSatSidebar();
+  animateCounter($("#kpi-satellites"), satItems.length);
+  activity.satellites = satItems.length;
+  renderActivity();
+  if(satReal){ feedStamp("sats"); feedStamp("activity"); }
+}
+
+/* ── Live air traffic: real aircraft from the OpenSky Network (ADS-B) ──
+   Fetch-driven (not frame-animated): markers refresh on each poll while the
+   layer is on. Falls back to an empty layer if OpenSky is unreachable. */
+// Created lazily inside setAircraft() — at top-level parse time the deferred
+// Leaflet isn't loaded yet, so L.layerGroup() would be undefined.
+let aircraftLayer = null;
+let aircraftOn = false;
+let aircraftTimer = null;
+
+function aircraftIcon(track, altM, onGround){
+  const color = onGround ? "#6b8a78" : (altM > 9000 ? "#00aaff" : "#00ff88");
+  return L.divIcon({
+    className: "", iconSize: [16, 16], iconAnchor: [8, 8],
+    html: `<div style="transform:rotate(${(track || 0)}deg);color:${color};font-size:13px;line-height:1;text-shadow:0 0 5px ${color};">✈</div>`
+  });
+}
+
+// OpenSky's anonymous tier is rate-limited (~400 calls/day per IP). On a 429
+// we honor Retry-After (default 10 min), keep the stale markers on the map,
+// and flip the panel stamp to RATE-LIMITED instead of failing silently.
+let aircraftBackoffUntil = 0;
+
+async function loadAircraft(){
+  if(!aircraftOn || !map) return;
+  if(Date.now() < aircraftBackoffUntil) return;
+  const {lamin, lomin, lamax, lomax} = AIRCRAFT_BOX;
+  const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
+  try{
+    const r = await fetch(url, {cache: "no-store"});
+    if(r.status === 429){
+      const retryAfter = parseInt(r.headers.get("Retry-After") || "", 10);
+      const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 600;
+      aircraftBackoffUntil = Date.now() + waitSec * 1000;
+      feedStamp("aircraft", "limited");
+      console.warn(`OpenSky rate-limited; backing off ${waitSec}s`);
+      return;
+    }
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    // OpenSky state vector indices: 1 callsign, 2 country, 5 lon, 6 lat,
+    // 7 baro_altitude, 8 on_ground, 9 velocity (m/s), 10 true_track.
+    const states = (data.states || []).filter((s) => s[5] != null && s[6] != null);
+    aircraftLayer.clearLayers();
+    states.slice(0, 80).forEach((s) => {
+      const callsign = (s[1] || "").trim() || s[0];
+      const lon = s[5], lat = s[6], altM = s[7], onGround = s[8], vel = s[9], track = s[10];
+      const m = L.marker([lat, lon], {icon: aircraftIcon(track, altM, onGround), title: callsign})
+        .bindPopup(platformPopupHtml(`✈ ${callsign}`, "#00aaff", [
+          `Origin: ${s[2] || "—"}`,
+          `Altitude: ${altM != null ? Math.round(altM) + " m" : "—"}`,
+          `Speed: ${vel != null ? Math.round(vel * 3.6) + " km/h" : "—"}`,
+          onGround ? "On ground" : "Airborne",
+          "Source: OpenSky Network · live ADS-B"
+        ]), {className: "custom-popup"});
+      aircraftLayer.addLayer(m);
+    });
+    animateCounter($("#kpi-movements"), states.length);
+    renderAircraftSidebar(states.slice(0, 12));
+    feedStamp("aircraft");
+  }catch(e){
+    console.warn("OpenSky air traffic unavailable:", e.message);
+  }
+}
+
+function renderAircraftSidebar(states){
+  const tbody = $("#move-tbody");
+  if(!tbody) return;
+  tbody.replaceChildren();
+  if(!states.length){
+    const tr = el("tr");
+    tr.innerHTML = `<td colspan="3" style="color:var(--text-muted);">Enable “✈ Air Traffic” — needs internet</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+  states.forEach((s) => {
+    const callsign = (s[1] || "").trim() || s[0];
+    const alt = s[7] != null ? Math.round(s[7]) + " m" : "—";
+    const tr = el("tr");
+    tr.innerHTML = `
+      <td class="td-system">✈ ${esc(callsign)}</td>
+      <td>${esc(s[2] || "—")}</td>
+      <td class="td-status-${s[8] ? "standby" : "active"}">${s[8] ? "GROUND" : alt}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function setAircraft(on){
+  if(!map) return;
+  if(!aircraftLayer) aircraftLayer = L.layerGroup();
+  aircraftOn = !!on;
+  const btn = $("#move-btn");
+  if(btn){
+    btn.setAttribute("aria-pressed", String(on));
+    btn.textContent = `✈ Air Traffic · ${on ? "ON" : "OFF"}`;
+    btn.classList.toggle("off", !on);
+  }
+  if(on){
+    aircraftLayer.addTo(map);
+    loadAircraft();
+    if(!aircraftTimer) aircraftTimer = setInterval(loadAircraft, 60000);
+  }else{
+    if(aircraftTimer){ clearInterval(aircraftTimer); aircraftTimer = null; }
+    map.removeLayer(aircraftLayer);
+  }
+}
+
+// Thin aliases keep the call sites readable.
+const setSatellites = (on) => satLayer.set(on);
+
+function buildMissileArc(from, to){
+  const latlngs = [];
+  const steps = 50;
+  for(let i = 0; i <= steps; i++){
+    const t = i / steps;
+    const lat = from[0] + (to[0] - from[0]) * t;
+    const lng = from[1] + (to[1] - from[1]) * t;
+    const arc = Math.sin(Math.PI * t) * 15;
+    latlngs.push([lat + arc, lng]);
+  }
+  return latlngs;
+}
+
+function initMap(){
+  map = L.map("map", {
+    center: [30, 15],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 7,
+    zoomControl: false,
+    attributionControl: false,
+    worldCopyJump: true
+  });
+  // Top-right keeps the zoom control clear of the HUD corner bracket and KPIs.
+  L.control.zoom({position: "topright"}).addTo(map);
+
+  // Offline vector basemap drawn from a bundled world GeoJSON — no tile server,
+  // so the map renders with zero network access (works deployed and over file://).
+  if(window.WORLD_GEOJSON){
+    L.geoJSON(window.WORLD_GEOJSON, {
+      interactive: false,
+      style: {color: "#1d3b30", weight: 0.6, fillColor: "#0c1612", fillOpacity: 1}
+    }).addTo(map);
+  }
+  $("#map-loader")?.classList.add("hidden");
+
+  NATIONS.forEach((n) => {
+    const marker = L.marker([n.lat, n.lng], {icon: nationMarkerIcon(n), title: n.name}).addTo(map);
+    marker.bindPopup(nationPopupHtml(n), {className: "custom-popup"});
+    marker.on("click", () => highlightNation(n.key));
+    markers[n.key] = marker;
+  });
+
+  BLAST_ZONES.forEach((z) => {
+    L.circle([z.lat, z.lng], {
+      radius: z.radius, color: z.color, weight: 1, interactive: false,
+      opacity: 0.3, fillColor: z.color, fillOpacity: 0.04
+    }).addTo(map);
+  });
+
+  MISSILE_ARCS.forEach((a) => {
+    L.polyline(buildMissileArc(a.from, a.to), {
+      color: a.color, weight: 1.5, opacity: 0.6, dashArray: "6,6", interactive: false
+    }).addTo(map);
+  });
+
+  addPlatformLayers();
+  initSatellites();          // async: real TLEs (CelesTrak) → SGP4, synthetic fallback
+  setAircraft(true);         // real ADS-B air traffic (OpenSky), refreshed every 60s
+
+  // Leaflet can mis-measure its container inside a CSS grid/flex layout,
+  // leaving the map gray until the size is recomputed.
+  const fixSize = () => map.invalidateSize();
+  map.whenReady(() => setTimeout(fixSize, 0));
+  window.addEventListener("resize", fixSize);
+}
+
+/* ──────────────── LAUNCH SIMULATION ──────────────── */
+let launchActive = false;
+let launchLayers = [];
+
+function clearLaunch(){
+  launchLayers.forEach((layer) => map.removeLayer(layer));
+  launchLayers = [];
+}
+
+function burstAt(latlng, color, size){
+  const marker = L.marker(latlng, {
+    interactive: false,
+    icon: L.divIcon({
+      className: "",
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div class="burst" style="width:${size}px;height:${size}px;background:radial-gradient(circle,${color} 0%,${color}88 40%,transparent 70%);"></div>`
+    })
+  }).addTo(map);
+  launchLayers.push(marker);
+  setTimeout(() => map.removeLayer(marker), 900);
+}
+
+function mmss(sec){
+  sec = Math.max(0, Math.round(sec));
+  return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+}
+const SIM_FLIGHT_SECONDS = 1860;   // notional DPRK→CONUS ICBM flight time (~31 min)
+
+function simulateLaunch(){
+  if(launchActive || !map) return;
+  launchActive = true;
+  clearLaunch();
+
+  const btn = $("#launch-btn");
+  const statusEl = $("#launch-status");
+  const etaEl = $("#launch-eta");
+  btn.disabled = true;
+  statusEl.className = "launch-status";
+  statusEl.textContent = "LAUNCH DETECTED · tracking trajectory…";
+  etaEl.hidden = false;
+  etaEl.className = "launch-eta";
+  etaEl.textContent = "IMPACT ETA " + mmss(SIM_FLIGHT_SECONDS);
+
+  const path = buildMissileArc(LAUNCH_SCENARIO.from, LAUNCH_SCENARIO.to);
+  const intercepted = Math.random() < LAUNCH_SCENARIO.interceptPk;
+  const endIdx = intercepted
+    ? Math.round((path.length - 1) * LAUNCH_SCENARIO.interceptFraction)
+    : path.length - 1;
+
+  launchLayers.push(
+    L.polyline(path, {color: "#ff6600", weight: 1, opacity: 0.4, dashArray: "4,6", interactive: false}).addTo(map)
+  );
+
+  const warhead = L.marker(path[0], {
+    interactive: false,
+    icon: L.divIcon({className: "", iconSize: [12, 12], iconAnchor: [6, 6], html: `<div class="warhead-dot"></div>`})
+  }).addTo(map);
+  const trail = L.polyline([path[0]], {color: "#ff3333", weight: 2, opacity: 0.85, interactive: false}).addTo(map);
+  launchLayers.push(warhead, trail);
+
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const duration = reduced ? 0 : 5200;
+  const startTime = performance.now();
+
+  function step(now){
+    const t = duration ? Math.min((now - startTime) / duration, 1) : 1;
+    const idx = Math.round(t * endIdx);
+    warhead.setLatLng(path[idx]);
+    trail.setLatLngs(path.slice(0, idx + 1));
+
+    // Live ETA to the CONUS aimpoint, derived from progress along the full arc.
+    const fullFrac = idx / (path.length - 1);
+    const phase = fullFrac < 0.08 ? "BOOST" : fullFrac < 0.85 ? "MIDCOURSE" : "TERMINAL";
+    etaEl.textContent = `${phase} · IMPACT ETA ${mmss(SIM_FLIGHT_SECONDS * (1 - fullFrac))}`;
+
+    if(t < 1){ requestAnimationFrame(step); return; }
+
+    map.removeLayer(warhead);
+    if(intercepted){
+      launchLayers.push(
+        L.polyline([LAUNCH_SCENARIO.interceptorSite, path[endIdx]],
+          {color: "#00ff88", weight: 1.5, opacity: 0.8, dashArray: "3,4", interactive: false}).addTo(map)
+      );
+      burstAt(path[endIdx], "#00ff88", 70);
+      statusEl.className = "launch-status intercepted";
+      statusEl.textContent = "✔ INTERCEPTED — GBI kill vehicle hit at midcourse";
+      etaEl.className = "launch-eta safe";
+      etaEl.textContent = `✔ NEUTRALIZED · T+${mmss(SIM_FLIGHT_SECONDS * LAUNCH_SCENARIO.interceptFraction)}`;
+    }else{
+      burstAt(path[endIdx], "#ff3333", 90);
+      statusEl.className = "launch-status impact";
+      statusEl.textContent = "✖ IMPACT — interceptors missed (CONUS)";
+      etaEl.className = "launch-eta impact";
+      etaEl.textContent = `✖ IMPACT · T+${mmss(SIM_FLIGHT_SECONDS)}`;
+    }
+    launchActive = false;
+    btn.disabled = false;
+  }
+  requestAnimationFrame(step);
+}
+
+/* ──────────────── NATION SELECTION ──────────────── */
+function highlightNation(key){
+  document.querySelectorAll(".nation-card").forEach((card) => {
+    const active = card.dataset.nation === key;
+    card.classList.toggle("active", active);
+    card.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function selectNation(key){
+  highlightNation(key);
+  const n = NATIONS.find((x) => x.key === key);
+  if(n && map){
+    map.flyTo([n.lat, n.lng], 4, {duration: 0.8});
+    markers[key]?.openPopup();
+  }
+}
+
+/* ──────────────── BOOTSTRAP ──────────────── */
+function init(){
+  renderNations();
+  renderMissiles();
+  renderInventory("#sub-tbody", SUBMARINES, [(s) => `${s.flag} ${esc(s.name)}`, (s) => s.slbm]);
+  renderInventory("#air-tbody", AIRCRAFT, [(a) => `${a.flag} ${esc(a.name)}`, (a) => a.base]);
+  renderInventory("#gbi-tbody", GBI_SITES, [(g) => `${g.flag} ${esc(g.name)}`, (g) => `${g.interceptors} GBI`]);
+  renderInventory("#base-tbody", GROUND_BASES, [(b) => `${b.flag} ${esc(b.name)}`, (b) => b.region]);
+  renderAircraftSidebar([]);   // placeholder until the first OpenSky poll lands
+  // #sat-tbody is populated by initSatellites() once real TLEs load (or fall back).
+  renderAlerts();
+  setActiveDefcon(activeDefcon);
+  renderArsenalChart();
+  renderDevelopment();
+  renderActivity();
+  renderLaunchWindows();
+  renderFeed();
+
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Keep the per-panel LIVE · age labels ticking.
+  renderFeedStamps();
+  setInterval(renderFeedStamps, 10000);
+
+  // Real seismic feed from USGS. Initial fetch + every 5 min refresh. The
+  // simulated INITIAL_FEED already rendered above is the offline fallback.
+  loadSeismicFeed();
+  setInterval(loadSeismicFeed, 5 * 60 * 1000);
+
+  // Real upcoming launches from The Space Devs + a live per-second T- countdown.
+  loadLaunchWindows();
+  setInterval(loadLaunchWindows, 10 * 60 * 1000);
+  setInterval(() => {
+    const cdEl = $("#next-launch-cd");
+    if(cdEl && nextLaunchNet != null) cdEl.textContent = fmtCountdown(nextLaunchNet - Date.now());
+  }, 1000);
+
+  // Real federal hazard alerts from the National Weather Service (same feed
+  // FEMA reads). The simulated ALERTS rendered above remain as the fallback.
+  loadNwsAlerts();
+  setInterval(loadNwsAlerts, 3 * 60 * 1000);
+
+  if(window.L) initMap();
+
+  // Compact map legend — trigger button toggles a popover, closed by default
+  // so the map has breathing room. Esc / outside-click also dismiss.
+  const legendPanel = $("#legend-panel");
+  const legendTrigger = $("#legend-trigger");
+  const toggleLegend = (force) => {
+    const open = force ?? !legendPanel.classList.contains("open");
+    legendPanel.classList.toggle("open", open);
+    legendTrigger.setAttribute("aria-expanded", String(open));
+  };
+  legendTrigger?.addEventListener("click", () => toggleLegend());
+  $("#legend-close")?.addEventListener("click", () => toggleLegend(false));
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && legendPanel.classList.contains("open")) toggleLegend(false); });
+  document.addEventListener("click", (e) => {
+    if(!legendPanel.classList.contains("open")) return;
+    if(legendPanel.contains(e.target) || legendTrigger.contains(e.target)) return;
+    toggleLegend(false);
+  });
+
+  const launchBtn = $("#launch-btn");
+  const satBtn = $("#sat-btn");
+  const moveBtn = $("#move-btn");
+  const imageryBtn = $("#imagery-btn");
+  if(window.L){
+    launchBtn.addEventListener("click", simulateLaunch);
+    satBtn.addEventListener("click", () => setSatellites(!satLayer.active));
+    moveBtn.addEventListener("click", () => setAircraft(!aircraftOn));
+    imageryBtn.addEventListener("click", () => setImagery(!imageryOn));
+  }else{
+    launchBtn.disabled = true;
+    satBtn.disabled = true;
+    moveBtn.disabled = true;
+    imageryBtn.disabled = true;
+    $("#launch-status").textContent = "Map unavailable — launch sim offline";
+    $("#map-loader").textContent = "Map library unavailable — offline";
+    // No map → still list the (synthetic) satellites in the sidebar.
+    renderInventory("#sat-tbody", SATELLITES, [(s) => `✦ ${esc(s.name)}`, (s) => s.tracksLabel]);
+    requestAnimationFrame(() => setTimeout(() => animateCounter($("#kpi-satellites"), SATELLITES.length), 1200));
+  }
+
+  const {totalWarheads, threats} = totals();
+  highlightNation("usa");
+
+  requestAnimationFrame(() => {
+    setTimeout(() => animateCounter($("#kpi-warheads"), totalWarheads), 300);
+    setTimeout(() => animateCounter($("#kpi-threats"), threats), 600);
+    // #kpi-movements (Live Aircraft) is filled by loadAircraft() once OpenSky responds.
+  });
+
+  setupBriefing();
+}
+
+/* ──────────────── FIRST-LOAD BRIEFING ──────────────── */
+function setupBriefing(){
+  const overlay = $("#briefing");
+  if(!overlay) return;
+  const SEEN_KEY = "nagt-briefing-seen";
+  const seen = () => { try{ return localStorage.getItem(SEEN_KEY) === "1"; }catch(e){ return false; } };
+  const remember = () => { try{ localStorage.setItem(SEEN_KEY, "1"); }catch(e){ /* private mode */ } };
+
+  const open = () => { overlay.hidden = false; requestAnimationFrame(() => overlay.classList.add("show")); };
+  const close = () => { overlay.classList.remove("show"); remember(); setTimeout(() => { overlay.hidden = true; }, 220); };
+
+  $("#briefing-enter")?.addEventListener("click", close);
+  $("#briefing-close")?.addEventListener("click", close);
+  $("#briefing-open")?.addEventListener("click", open);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) close(); });
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && !overlay.hidden) close(); });
+
+  if(!seen()) open();   // first visit only; reopen anytime via the header button
+}
+
+// Scripts are deferred, so the DOM is parsed — but guard anyway.
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", init);
+}else{
+  init();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+/* Self-hosted fonts (latin, woff2). Replaces the Google Fonts CDN so the app
+   works offline and over file://. Sourced from @fontsource / @fontsource-variable. */
+
+@font-face{
+  font-family:'Orbitron';
+  font-style:normal;font-weight:400;font-display:swap;
+  src:url('orbitron-latin-400-normal.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Orbitron';
+  font-style:normal;font-weight:700;font-display:swap;
+  src:url('orbitron-latin-700-normal.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Orbitron';
+  font-style:normal;font-weight:900;font-display:swap;
+  src:url('orbitron-latin-900-normal.woff2') format('woff2');
+}
+
+@font-face{
+  font-family:'Share Tech Mono';
+  font-style:normal;font-weight:400;font-display:swap;
+  src:url('share-tech-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face{
+  font-family:'Inter';
+  font-style:normal;font-weight:100 900;font-display:swap;
+  src:url('inter-latin-variable-normal.woff2') format('woff2');
+}
